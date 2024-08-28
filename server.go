@@ -1,38 +1,40 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"net"
+	"strings"
 )
 
 type Server struct {
 	listenAddr string
-	ln net.Listener
-	netChan chan struct{}
-	msgChan chan Message
-	clients map[net.Conn]struct{}
+	ln         net.Listener
+	netChan    chan struct{}
+	msgChan    chan Message
+	clients    map[net.Conn]struct{}
 }
 
 type Message struct {
-	sender string
+	sender  string
 	content []byte
 }
 
 func NewServer(port string) (*Server, error) {
 	return &Server{
 		listenAddr: port,
-		netChan: make(chan struct{}),
-		msgChan: make(chan Message, 10),
-		clients: make(map[net.Conn]struct{}),
+		netChan:    make(chan struct{}),
+		msgChan:    make(chan Message, 10),
+		clients:    make(map[net.Conn]struct{}),
 	}, nil
 }
 
-func (s *Server) Start() error{
+func (s *Server) Start() error {
 	ln, err := net.Listen("tcp", s.listenAddr)
-	if err!= nil {
-        return err
-    }
+	if err != nil {
+		return err
+	}
 	defer ln.Close()
 
 	go s.handleConnetion()
@@ -52,26 +54,30 @@ func (s *Server) handleConnetion() {
 			fmt.Printf("error accepting connection: %v", err)
 			continue
 		}
+		conn.Write([]byte("Hey buddy, what's your name?"))
+		userName, _ := bufio.NewReader(conn).ReadString('\n')
+		fmt.Println(userName)
+
 		s.addClient(conn)
-		go s.readConn(conn)
+		go s.readConn(conn, strings.TrimSpace(userName))
 		log.Printf("received connection: %s", conn.RemoteAddr())
 	}
 }
 
-func (s *Server) readConn(conn net.Conn) {
+func (s *Server) readConn(conn net.Conn, username string) {
 	buff := make([]byte, 2048)
 
 	for {
 		n, err := conn.Read(buff)
 		if err != nil {
-			fmt.Println("Oops! He disconnected")
-            conn.Close()
-            return
+			s.broadcastMsg([]byte(fmt.Sprintf("Oops! %s disconnected", username)))
+			conn.Close()
+			return
 		}
 		msg := buff[:n]
 		s.msgChan <- Message{
-			sender: conn.RemoteAddr().String(),
-            content: msg,
+			sender:  conn.RemoteAddr().String(),
+			content: msg,
 		}
 		conn.Write([]byte(" 👉 :"))
 	}
@@ -86,6 +92,7 @@ func (s *Server) broadcastMsg(msg []byte) {
 		client.Write(msg)
 	}
 }
+
 func main() {
 	port := ":8080"
 	server, err := NewServer(port)
@@ -94,9 +101,9 @@ func main() {
 	}
 	fmt.Println("Server running on port: ", port)
 	go func() {
-        for msg := range server.msgChan {
-            server.broadcastMsg(msg.content)
-        }
-    }()
+		for msg := range server.msgChan {
+			server.broadcastMsg(msg.content)
+		}
+	}()
 	server.Start()
 }
