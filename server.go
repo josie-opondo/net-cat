@@ -14,6 +14,7 @@ type Server struct {
 	netChan    chan struct{}
 	msgChan    chan Message
 	clients    map[net.Conn]struct{}
+	sem        chan struct{}
 }
 
 type Message struct {
@@ -27,6 +28,7 @@ func NewServer(port string) (*Server, error) {
 		netChan:    make(chan struct{}),
 		msgChan:    make(chan Message, 10),
 		clients:    make(map[net.Conn]struct{}),
+		sem:        make(chan struct{}, 10),
 	}, nil
 }
 
@@ -37,7 +39,7 @@ func (s *Server) Start() error {
 	}
 	defer ln.Close()
 
-	go s.handleConnetion()
+	go s.handleConnection()
 
 	s.ln = ln
 	<-s.netChan
@@ -47,21 +49,38 @@ func (s *Server) Start() error {
 	return nil
 }
 
-func (s *Server) handleConnetion() {
-	for {
-		conn, err := s.ln.Accept()
-		if err != nil {
-			fmt.Printf("error accepting connection: %v", err)
-			continue
-		}
-		conn.Write([]byte("Hey buddy, what's your name?"))
-		userName, _ := bufio.NewReader(conn).ReadString('\n')
-		fmt.Println(userName)
+func (s *Server) handleConnection() {
+    for {
+        conn, err := s.ln.Accept()
+        if err != nil {
+            fmt.Printf("error accepting connection: %v", err)
+            continue
+        }
 
-		s.addClient(conn)
-		go s.readConn(conn, strings.TrimSpace(userName))
-		log.Printf("received connection: %s", conn.RemoteAddr())
-	}
+        // Check if the semaphore has space (max 10 connections)
+        select {
+        case s.sem <- struct{}{}: // Acquire token, proceed if there is space
+            go func() {
+                defer func() {
+                    conn.Close()
+                    s.removeClient(conn)
+                    <-s.sem // Release token
+                }()
+
+                conn.Write([]byte("Hey buddy, what's your name?"))
+                userName, _ := bufio.NewReader(conn).ReadString('\n')
+                fmt.Println(userName)
+
+                s.addClient(conn)
+                s.readConn(conn, strings.TrimSpace(userName))
+                log.Printf("received connection: %s", conn.RemoteAddr())
+            }()
+        default:
+            // If the channel is full, reject the connection and print a message
+            fmt.Println("Max connections reached, rejecting new connection from:", conn.RemoteAddr())
+            conn.Close()
+        }
+    }
 }
 
 func (s *Server) readConn(conn net.Conn, username string) {
@@ -91,6 +110,10 @@ func (s *Server) broadcastMsg(msg []byte) {
 	for client := range s.clients {
 		client.Write(msg)
 	}
+}
+
+func (s *Server) removeClient(conn net.Conn) {
+	delete(s.clients, conn)
 }
 
 func main() {
