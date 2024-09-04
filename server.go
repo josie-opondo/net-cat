@@ -15,12 +15,13 @@ type Server struct {
 	msgChan    chan Message
 	clients    map[net.Conn]struct{}
 	sem        chan struct{}
+	msgStore   []Message
 }
 
 type Message struct {
 	sender  string
 	content []byte
-	conn net.Conn
+	conn    net.Conn
 }
 
 func NewServer(port string) (*Server, error) {
@@ -30,6 +31,7 @@ func NewServer(port string) (*Server, error) {
 		msgChan:    make(chan Message, 10),
 		clients:    make(map[net.Conn]struct{}),
 		sem:        make(chan struct{}, 10),
+		msgStore:   make([]Message, 0),
 	}, nil
 }
 
@@ -51,36 +53,43 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) handleConnection() {
-    for {
-        conn, err := s.ln.Accept()
-        if err != nil {
-            fmt.Printf("error accepting connection: %v", err)
-            continue
-        }
+	for {
+		conn, err := s.ln.Accept()
+		if err != nil {
+			fmt.Printf("error accepting connection: %v", err)
+			continue
+		}
 
-        // Check if the semaphore has space (max 10 connections)
-        select {
-        case s.sem <- struct{}{}: // Acquire token, proceed if there is space
-            go func() {
-                defer func() {
-                    conn.Close()
-                    s.removeClient(conn)
-                    <-s.sem // Release token
-                }()
+		// Check if the semaphore has space (max 10 connections)
+		select {
+		case s.sem <- struct{}{}: // Acquire token, proceed if there is space
+			go func() {
+				defer func() {
+					conn.Close()
+					s.removeClient(conn)
+					<-s.sem // Release token
+				}()
 
-                conn.Write([]byte("Hey buddy, what's your name? "))
-                userName, _ := bufio.NewReader(conn).ReadString('\n')
-                fmt.Println(userName)
+				conn.Write([]byte("Hey buddy, what's your name? "))
+				userName, _ := bufio.NewReader(conn).ReadString('\n')
 
-                s.addClient(conn)
-                s.readConn(conn, strings.TrimSpace(userName))
-                log.Printf("received connection: %s", conn.RemoteAddr())
-            }()
-        default:
-            fmt.Println("Max connections reached, rejecting new connection from:", conn.RemoteAddr())
-            conn.Close()
-        }
-    }
+				s.addClient(conn)
+
+				s.broadcastMsg(conn, []byte(fmt.Sprintf("%s has joined the chat!", userName)))
+
+				for _, mess := range s.msgStore {
+					conn.Write([]byte(mess.sender))
+					conn.Write([]byte(mess.content))
+				}
+
+				s.readConn(conn, strings.TrimSpace(userName))
+				log.Printf("received connection: %s", conn.RemoteAddr())
+			}()
+		default:
+			fmt.Println("Max connections reached, rejecting new connection from:", conn.RemoteAddr())
+			conn.Close()
+		}
+	}
 }
 
 func (s *Server) readConn(conn net.Conn, username string) {
@@ -94,13 +103,16 @@ func (s *Server) readConn(conn net.Conn, username string) {
 			return
 		}
 		msg := buff[:n]
-
 		formatMsg := []byte(fmt.Sprintf("\n%s: %s\n", username, strings.TrimSpace(string(msg))))
-		s.msgChan <- Message{
+
+		message := Message{
 			sender:  username,
 			content: formatMsg,
-			conn: conn,
+			conn:    conn,
 		}
+
+		s.msgStore = append(s.msgStore, message)
+		s.msgChan <- message
 	}
 }
 
