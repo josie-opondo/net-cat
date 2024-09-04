@@ -20,6 +20,7 @@ type Server struct {
 type Message struct {
 	sender  string
 	content []byte
+	conn net.Conn
 }
 
 func NewServer(port string) (*Server, error) {
@@ -67,7 +68,7 @@ func (s *Server) handleConnection() {
                     <-s.sem // Release token
                 }()
 
-                conn.Write([]byte("Hey buddy, what's your name?"))
+                conn.Write([]byte("Hey buddy, what's your name? "))
                 userName, _ := bufio.NewReader(conn).ReadString('\n')
                 fmt.Println(userName)
 
@@ -76,7 +77,6 @@ func (s *Server) handleConnection() {
                 log.Printf("received connection: %s", conn.RemoteAddr())
             }()
         default:
-            // If the channel is full, reject the connection and print a message
             fmt.Println("Max connections reached, rejecting new connection from:", conn.RemoteAddr())
             conn.Close()
         }
@@ -89,16 +89,18 @@ func (s *Server) readConn(conn net.Conn, username string) {
 	for {
 		n, err := conn.Read(buff)
 		if err != nil {
-			s.broadcastMsg([]byte(fmt.Sprintf("Oops! %s disconnected", username)))
+			s.broadcastMsg(conn, []byte(fmt.Sprintf("\nOops! %s disconnected", username)))
 			conn.Close()
 			return
 		}
 		msg := buff[:n]
+
+		formatMsg := []byte(fmt.Sprintf("\n%s: %s\n", username, strings.TrimSpace(string(msg))))
 		s.msgChan <- Message{
-			sender:  conn.RemoteAddr().String(),
-			content: msg,
+			sender:  username,
+			content: formatMsg,
+			conn: conn,
 		}
-		conn.Write([]byte(" 👉 :"))
 	}
 }
 
@@ -106,9 +108,11 @@ func (s *Server) addClient(conn net.Conn) {
 	s.clients[conn] = struct{}{}
 }
 
-func (s *Server) broadcastMsg(msg []byte) {
+func (s *Server) broadcastMsg(conn net.Conn, msg []byte) {
 	for client := range s.clients {
-		client.Write(msg)
+		if client != conn {
+			client.Write(msg)
+		}
 	}
 }
 
@@ -125,7 +129,7 @@ func main() {
 	fmt.Println("Server running on port: ", port)
 	go func() {
 		for msg := range server.msgChan {
-			server.broadcastMsg(msg.content)
+			server.broadcastMsg(msg.conn, msg.content)
 		}
 	}()
 	server.Start()
