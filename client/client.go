@@ -8,61 +8,44 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: go run main.go <address>")
-		return
-	}
-
-	conn, err := net.Dial("tcp", os.Args[1])
+	conn, err := net.Dial("tcp", "localhost:4080") // Ensure the correct port
 	if err != nil {
-		fmt.Printf("Oops! %v\n", err)
+		fmt.Printf("Oops! Couldn't connect to the server: %v\n", err)
 		return
 	}
 	defer conn.Close()
 
-	reader := bufio.NewReader(conn)
+	userInput := make(chan string)
 
-	// Read username prompt from server
-	prompt, err := reader.ReadString('\n')
-	if err != nil {
-		fmt.Println("Error reading from server:", err)
-		return
-	}
-	fmt.Print(prompt)
+	// Goroutine for reading user input
+	go func() {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			input := scanner.Text()
+			if input == "exit" {
+				close(userInput)
+				return
+			}
+			userInput <- input
+		}
+	}()
 
-	// Get username from the client (user input)
-	scanner := bufio.NewScanner(os.Stdin)
-	if scanner.Scan() {
-		username := scanner.Text()
-		fmt.Fprintf(conn, username+"\n") // Send the username to the server
-	}
-
-	// Goroutine for receiving server messages
+	// Goroutine for reading server messages
 	go func() {
 		for {
 			msg, err := reader.ReadString('\n')
 			if err != nil {
-				fmt.Println("Disconnected:", err)
-				break
+				fmt.Println("Disconnected from server.")
+				return
 			}
-			fmt.Print("👉 ", msg)
+			fmt.Println("👉 ", msg)
 		}
 	}()
 
-	// Goroutine for sending user input
-	for scanner.Scan() {
-		input := scanner.Text()
-
-		if input == "exit" {
-			fmt.Fprintf(conn, "Goodbye!\n")
-			conn.Close()
-			os.Exit(0)
-		}
-
-		_, err := fmt.Fprintf(conn, input+"\n")
-		if err != nil {
-			fmt.Println("Error sending message:", err)
-			return
-		}
+	// Main loop for sending user input to the server
+	for input := range userInput {
+		fmt.Fprintf(conn, input+"\n")
 	}
+
+	fmt.Println("Goodbye buddies!")
 }
