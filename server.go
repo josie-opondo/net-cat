@@ -10,7 +10,6 @@ import (
 type Server struct {
 	listenAddr string
 	ln         net.Listener
-	netChan    chan struct{}
 	msgChan    chan Message
 	clients    map[net.Conn]string
 	sem        chan struct{}
@@ -26,7 +25,6 @@ type Message struct {
 func NewServer(port string) (*Server, error) {
 	return &Server{
 		listenAddr: port,
-		netChan:    make(chan struct{}),
 		msgChan:    make(chan Message, 10),
 		clients:    make(map[net.Conn]string),
 		sem:        make(chan struct{}, 10),
@@ -125,9 +123,9 @@ func (s *Server) addClient(conn net.Conn, userName string) {
 	s.clients[conn] = userName
 }
 
-func (s *Server) broadcastMsg(conn net.Conn, msg []byte) {
+func (s *Server) broadcastMsg(sender net.Conn, msg []byte) {
 	for client := range s.clients {
-		if client != conn {
+		if client != sender {
 			client.Write(msg)
 		}
 	}
