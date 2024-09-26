@@ -93,10 +93,10 @@ func (s *Server) handleClient(conn net.Conn) {
 		conn.Write([]byte(fmt.Sprintf("%s: %s\n", mess.sender, mess.content)))
 	}
 
-	s.readConn(conn, userName)
+	s.readClientMessages(conn, userName)
 }
 
-func (s *Server) readConn(conn net.Conn, username string) {
+func (s *Server) readClientMessages(conn net.Conn, username string) {
 	reader := bufio.NewReader(conn)
 
 	for {
