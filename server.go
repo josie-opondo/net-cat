@@ -14,7 +14,7 @@ type Server struct {
 	listenAddr string
 	ln         net.Listener
 	msgChan    chan Message
-	clients    map[net.Conn]struct{}
+	clients    map[net.Conn]string // Store client connections with usernames
 	sem        chan struct{}
 	msgStore   []Message
 	shutdown   chan struct{} // Shutdown channel
@@ -44,12 +44,24 @@ func (s *Server) Start() error {
 	}
 	defer ln.Close()
 
+	s.ln = ln
+
+	// Goroutine to handle incoming messages and broadcast them
+	go func() {
+		for msg := range s.msgChan {
+			s.broadcastMsg(msg.conn, msg.content)
+		}
+	}()
+
+	// Handle incoming connections
 	go s.handleConnection()
 
-	s.ln = ln
-	<-s.netChan
+	// Block until a shutdown signal is received
+	<-s.shutdown
 
-	close(s.msgChan)
+	// Once shutdown is triggered, close the message channel and all client connections
+	close(s.msgChan)        // Close the message channel
+	s.closeAllConnections() // Close all active connections
 
 	return nil
 }
@@ -70,29 +82,8 @@ func (s *Server) handleConnection() {
 
 		// Semaphore to limit connections
 		select {
-		case s.sem <- struct{}{}: // Acquire token, proceed if there is space
-			go func() {
-				defer func() {
-					conn.Close()
-					s.removeClient(conn)
-					<-s.sem // Release token
-				}()
-
-				conn.Write([]byte("Hey buddy, what's your name? "))
-				userName, _ := bufio.NewReader(conn).ReadString('\n')
-
-				s.addClient(conn)
-
-				s.broadcastMsg(conn, []byte(fmt.Sprintf("%s has joined the chat!", userName)))
-
-				for _, mess := range s.msgStore {
-					conn.Write([]byte(mess.sender))
-					conn.Write([]byte(mess.content))
-				}
-
-				s.readConn(conn, strings.TrimSpace(userName))
-				log.Printf("received connection: %s", conn.RemoteAddr())
-			}()
+		case s.sem <- struct{}{}: // Allow connection
+			go s.handleClient(conn)
 		default:
 			fmt.Println("Max connections reached, rejecting new connection from:", conn.RemoteAddr())
 			conn.Close()
@@ -100,18 +91,47 @@ func (s *Server) handleConnection() {
 	}
 }
 
-func (s *Server) readConn(conn net.Conn, username string) {
-	buff := make([]byte, 2048)
+func (s *Server) handleClient(conn net.Conn) {
+	defer func() {
+		s.removeClient(conn)
+		conn.Close()
+		<-s.sem // Release the semaphore
+	}()
 
+	conn.Write([]byte("Hey buddy, what's your name?\n"))
+	userName, _ := bufio.NewReader(conn).ReadString('\n')
+	userName = strings.TrimSpace(userName)
+
+	if userName == "" {
+		conn.Write([]byte("Invalid name. Disconnecting.\n"))
+		return
+	}
+
+	s.addClient(conn, userName)
+
+	// Broadcast that the user has joined
+	s.broadcastMsg(conn, []byte(fmt.Sprintf("%s has joined the chat!\r\n", userName)))
+
+	// Send stored messages to the newly connected user
+	for _, msg := range s.msgStore {
+		conn.Write([]byte(fmt.Sprintf("%s: %s\r\n", msg.sender, string(msg.content))))
+	}
+
+	// Read incoming messages from the client
+	s.readClientMessages(conn, userName)
+}
+
+func (s *Server) readClientMessages(conn net.Conn, username string) {
+	reader := bufio.NewReader(conn)
 	for {
-		n, err := conn.Read(buff)
+		msg, err := reader.ReadString('\n')
 		if err != nil {
-			s.broadcastMsg(conn, []byte(fmt.Sprintf("\nOops! %s disconnected", username)))
-			conn.Close()
-			return
+			s.broadcastMsg(conn, []byte(fmt.Sprintf("%s has left the chat.\r\n", username)))
+			break
 		}
-		msg := buff[:n]
-		formatMsg := []byte(fmt.Sprintf("\n%s: %s\n", username, strings.TrimSpace(string(msg))))
+
+		trimmedMsg := strings.TrimSpace(msg)
+		formattedMsg := fmt.Sprintf("%s: %s\r\n", username, trimmedMsg)
 
 		message := Message{
 			sender:  username,
@@ -125,16 +145,8 @@ func (s *Server) readConn(conn net.Conn, username string) {
 	}
 }
 
-func (s *Server) addClient(conn net.Conn) {
-	s.clients[conn] = struct{}{}
-}
-
-func (s *Server) broadcastMsg(conn net.Conn, msg []byte) {
-	for client := range s.clients {
-		if client != conn {
-			client.Write(msg)
-		}
-	}
+func (s *Server) addClient(conn net.Conn, username string) {
+	s.clients[conn] = username
 }
 
 func (s *Server) removeClient(conn net.Conn) {
@@ -163,11 +175,18 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println("Server running on port: ", port)
+
+	fmt.Println("Server running on port:", port)
+
+	// Signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
 	go func() {
-		for msg := range server.msgChan {
-			server.broadcastMsg(msg.conn, msg.content)
-		}
+		<-sigChan
+		fmt.Println("\nShutting down server...")
+		close(server.shutdown) // Trigger shutdown
 	}()
+
 	server.Start()
 }

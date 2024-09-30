@@ -15,14 +15,32 @@ func main() {
 	}
 	defer conn.Close()
 
+	reader := bufio.NewReader(conn)
+
+	// Wait for the server's prompt asking for the name
+	prompt, err := reader.ReadString('\n')
+	if err != nil {
+		fmt.Println("Error reading from server:", err)
+		return
+	}
+	fmt.Print(prompt)
+
+	// Get user's name and send it to the server
+	scanner := bufio.NewScanner(os.Stdin)
+	if scanner.Scan() {
+		name := scanner.Text()
+		fmt.Fprintf(conn, name+"\n")
+	}
+
+	// Channel to handle user input
 	userInput := make(chan string)
 
-	// Goroutine for reading user input
+	// Goroutine to handle user input
 	go func() {
-		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
 			input := scanner.Text()
 			if input == "exit" {
+				fmt.Println("Exiting the chat. Goodbye!")
 				close(userInput)
 				return
 			}
@@ -30,7 +48,7 @@ func main() {
 		}
 	}()
 
-	// Goroutine for reading server messages
+	// Goroutine to listen for messages from the server
 	go func() {
 		for {
 			msg, err := reader.ReadString('\n')
@@ -38,14 +56,22 @@ func main() {
 				fmt.Println("Disconnected from server.")
 				return
 			}
-			fmt.Println("👉 ", msg)
+			fmt.Print(msg) // Print messages from the server
 		}
 	}()
 
-	// Main loop for sending user input to the server
-	for input := range userInput {
-		fmt.Fprintf(conn, input+"\n")
+	// Main loop to handle sending user input to the server
+	for {
+		select {
+		case input, ok := <-userInput:
+			if !ok {
+				return // User closed the input, exit the loop
+			}
+			_, err := fmt.Fprintf(conn, input+"\n")
+			if err != nil {
+				fmt.Println("Failed to send message. Disconnecting...")
+				return
+			}
+		}
 	}
-
-	fmt.Println("Goodbye buddies!")
 }
