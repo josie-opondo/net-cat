@@ -14,7 +14,7 @@ type Server struct {
 	listenAddr string
 	ln         net.Listener
 	msgChan    chan Message
-	clients    map[net.Conn]struct{}
+	clients    map[net.Conn]string
 	sem        chan struct{}
 	msgStore   []Message
 	shutdown   chan struct{} // Shutdown channel
@@ -44,12 +44,20 @@ func (s *Server) Start() error {
 	}
 	defer ln.Close()
 
+	s.ln = ln
+
+	go func() {
+		for msg := range s.msgChan {
+			s.broadcastMsg(msg.conn, msg.content)
+		}
+	}()
+
 	go s.handleConnection()
 
-	s.ln = ln
-	<-s.netChan
+	<-s.shutdown
 
 	close(s.msgChan)
+	s.closeAllConnections()
 
 	return nil
 }
@@ -71,28 +79,7 @@ func (s *Server) handleConnection() {
 		// Semaphore to limit connections
 		select {
 		case s.sem <- struct{}{}: // Acquire token, proceed if there is space
-			go func() {
-				defer func() {
-					conn.Close()
-					s.removeClient(conn)
-					<-s.sem // Release token
-				}()
-
-				conn.Write([]byte("Hey buddy, what's your name? "))
-				userName, _ := bufio.NewReader(conn).ReadString('\n')
-
-				s.addClient(conn)
-
-				s.broadcastMsg(conn, []byte(fmt.Sprintf("%s has joined the chat!", userName)))
-
-				for _, mess := range s.msgStore {
-					conn.Write([]byte(mess.sender))
-					conn.Write([]byte(mess.content))
-				}
-
-				s.readConn(conn, strings.TrimSpace(userName))
-				log.Printf("received connection: %s", conn.RemoteAddr())
-			}()
+			go s.handleClient(conn)
 		default:
 			fmt.Println("Max connections reached, rejecting new connection from:", conn.RemoteAddr())
 			conn.Close()
@@ -100,22 +87,46 @@ func (s *Server) handleConnection() {
 	}
 }
 
+func (s *Server) handleClient(conn net.Conn) {
+	defer func() {
+		s.removeClient(conn)
+		conn.Close()
+		<-s.sem // Release token
+	}()
+
+	conn.Write([]byte("Hey buddy, what's your name? "))
+	userName, _ := bufio.NewReader(conn).ReadString('\n')
+
+	if userName == "" {
+		conn.Write([]byte("Username cannot be empty. Disconnecting...\n"))
+		return
+	}
+
+	s.addClient(conn, userName)
+
+	s.broadcastMsg(conn, []byte(fmt.Sprintf("%s has joined the chat!", userName)))
+
+	for _, msg := range s.msgStore {
+		conn.Write([]byte(fmt.Sprintf("%s: %s\r\n", msg.sender, string(msg.content))))
+	}
+
+	s.readConn(conn, strings.TrimSpace(userName))
+}
+
 func (s *Server) readConn(conn net.Conn, username string) {
-	buff := make([]byte, 2048)
+	reader := bufio.NewReader(conn)
 
 	for {
-		n, err := conn.Read(buff)
+		msg, err := reader.ReadString('\n')
 		if err != nil {
-			s.broadcastMsg(conn, []byte(fmt.Sprintf("\nOops! %s disconnected", username)))
-			conn.Close()
-			return
+			s.broadcastMsg(conn, []byte(fmt.Sprintf("\nOops! %s disconnected\n", username)))
+			break
 		}
-		msg := buff[:n]
-		formatMsg := []byte(fmt.Sprintf("\n%s: %s\n", username, strings.TrimSpace(string(msg))))
 
+		formatMsg := []byte(fmt.Sprintf("\n%s: %s\n", username, strings.TrimSpace(string(msg))))
 		message := Message{
 			sender:  username,
-			content: []byte(formattedMsg),
+			content: []byte(formatMsg),
 			conn:    conn,
 		}
 
@@ -125,8 +136,9 @@ func (s *Server) readConn(conn net.Conn, username string) {
 	}
 }
 
-func (s *Server) addClient(conn net.Conn) {
-	s.clients[conn] = struct{}{}
+
+func (s *Server) addClient(conn net.Conn, userName string) {
+	s.clients[conn] = userName
 }
 
 func (s *Server) broadcastMsg(conn net.Conn, msg []byte) {
@@ -139,14 +151,6 @@ func (s *Server) broadcastMsg(conn net.Conn, msg []byte) {
 
 func (s *Server) removeClient(conn net.Conn) {
 	delete(s.clients, conn)
-}
-
-func (s *Server) broadcastMsg(sender net.Conn, msg []byte) {
-	for client := range s.clients {
-		if client != sender { // Don't send the message back to the sender
-			client.Write(msg) // msg already contains "\r\n"
-		}
-	}
 }
 
 func (s *Server) closeAllConnections() {
@@ -164,10 +168,14 @@ func main() {
 		return
 	}
 	fmt.Println("Server running on port: ", port)
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
 	go func() {
-		for msg := range server.msgChan {
-			server.broadcastMsg(msg.conn, msg.content)
-		}
+		<-sigChan
+		fmt.Println("\nServer shutting down...")
+		close(server.shutdown)
 	}()
 	server.Start()
 }
