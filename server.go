@@ -94,7 +94,7 @@ func (s *Server) handleClient(conn net.Conn) {
 		<-s.sem // Release token
 	}()
 
-	conn.Write([]byte("Hey buddy, what's your name? "))
+	conn.Write([]byte("Hey buddy, what's your name? !"))
 	userName, _ := bufio.NewReader(conn).ReadString('\n')
 
 	if userName == "" {

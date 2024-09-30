@@ -60,7 +60,7 @@ func (c *Client) Start() {
 }
 
 func (c *Client) readServerPrompt(reader *bufio.Reader) error {
-	prompt, err := reader.ReadString('\n')
+	prompt, err := reader.ReadString('!')
 	if err != nil {
 		fmt.Println("Error reading from server: ", err)
 		return err
