@@ -112,7 +112,7 @@ func (s *Server) handleClient(conn net.Conn) {
 	conn.Write([]byte(welcomeMessage))
 	userName, _ := bufio.NewReader(conn).ReadString('\n')
 
-	if len(strings.TrimSpace(userName)) < 3  {
+	if len(strings.TrimSpace(userName)) < 3 {
 		conn.Write([]byte("Enter valid name. Disconnecting...\n"))
 		return
 	}
@@ -120,9 +120,10 @@ func (s *Server) handleClient(conn net.Conn) {
 	s.addClient(conn, userName)
 	conn.Write([]byte(fmt.Sprintf("Welcome, %s!\n", userName[:len(userName)-1])))
 
-	s.broadcastMsg(conn, []byte(fmt.Sprintf("%s has joined the chat!\n", userName[:len(userName)-1])))
+	msg := fmt.Sprintf("%s has joined the chat!\n", userName[:len(userName)-1])
 
-	
+	s.clientInfomer(conn, []byte(msg))
+
 	for _, msg := range s.msgStore {
 		timestamp := msg.msgDate.Format("2006-01-02 15:04:05")
 		message := fmt.Sprintf("[%v][%s]:%s\n", timestamp, msg.sender, string(msg.content))
@@ -141,10 +142,10 @@ func (s *Server) readConn(conn net.Conn, username string) {
 	for {
 		msg, err := reader.ReadString('\n')
 		if err != nil {
-			s.broadcastMsg(conn, []byte(fmt.Sprintf("\nOops! %s disconnected\n", username)))
+			s.clientInfomer(conn, []byte(fmt.Sprintf("\nOops! %s disconnected\n", username[:len(username)-1])))
 			break
 		}
-		
+
 		formatMsg := []byte(fmt.Sprintf("%s\n", strings.TrimSpace(string(msg))))
 		message := Message{
 			sender:  username,
@@ -160,13 +161,30 @@ func (s *Server) readConn(conn net.Conn, username string) {
 }
 
 func (s *Server) addClient(conn net.Conn, userName string) {
-	s.clients[conn] = userName
+	s.clients[conn] = userName[:len(userName)-1]
 }
 
 func (s *Server) broadcastMsg(conn net.Conn, msg []byte) {
 	for client := range s.clients {
 		if client != conn {
-			client.Write(msg)
+			timestamp := time.Now().Format("2006-01-02 15:04:05")
+			message := fmt.Sprintf("[%v][%s]:%s\n", timestamp, s.clients[conn], msg)
+			_, err := client.Write([]byte(message))
+			if err != nil {
+				fmt.Println("Error writing to connection:", err)
+			}
+		}
+	}
+}
+
+func (s *Server) clientInfomer(conn net.Conn, msg []byte) {
+	for client := range s.clients {
+		if client != conn {
+			message := fmt.Sprintf("\n%s\n", msg)
+			_, err := client.Write([]byte(message))
+			if err != nil {
+				fmt.Println("Error writing to connection:", err)
+			}
 		}
 	}
 }
