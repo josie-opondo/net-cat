@@ -116,8 +116,9 @@ func (s *Server) handleClient(conn net.Conn) {
 	}
 
 	s.addClient(conn, userName)
+	conn.Write([]byte(fmt.Sprintf("Welcome, %s!\n", userName[:len(userName)-1])))
 
-	s.broadcastMsg(conn, []byte(fmt.Sprintf("%s has joined the chat!", userName[:len(userName)-1])))
+	s.broadcastMsg(conn, []byte(fmt.Sprintf("%s has joined the chat!\n", userName[:len(userName)-1])))
 
 	for _, msg := range s.msgStore {
 		conn.Write([]byte(fmt.Sprintf("%s: %s\r\n", msg.sender, string(msg.content))))
