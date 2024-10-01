@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 )
 
 type Server struct {
@@ -24,6 +25,7 @@ type Message struct {
 	sender  string
 	content []byte
 	conn    net.Conn
+	msgDate time.Time
 }
 
 func NewServer(port string) (*Server, error) {
@@ -120,8 +122,14 @@ func (s *Server) handleClient(conn net.Conn) {
 
 	s.broadcastMsg(conn, []byte(fmt.Sprintf("%s has joined the chat!\n", userName[:len(userName)-1])))
 
+	
 	for _, msg := range s.msgStore {
-		conn.Write([]byte(fmt.Sprintf("%s: %s\n", msg.sender, string(msg.content))))
+		timestamp := msg.msgDate.Format("2006-01-02 15:04:05")
+		message := fmt.Sprintf("[%v][%s]:%s\n", timestamp, msg.sender, string(msg.content))
+		_, err := conn.Write([]byte(message))
+		if err != nil {
+			fmt.Println("Error writing to connection:", err)
+		}
 	}
 
 	s.readConn(conn, strings.TrimSpace(userName))
@@ -136,12 +144,13 @@ func (s *Server) readConn(conn net.Conn, username string) {
 			s.broadcastMsg(conn, []byte(fmt.Sprintf("\nOops! %s disconnected\n", username)))
 			break
 		}
-
-		formatMsg := []byte(fmt.Sprintf("%s: %s\n", username, strings.TrimSpace(string(msg))))
+		
+		formatMsg := []byte(fmt.Sprintf("%s\n", strings.TrimSpace(string(msg))))
 		message := Message{
 			sender:  username,
 			content: []byte(formatMsg),
 			conn:    conn,
+			msgDate: time.Now(),
 		}
 
 		// Store and broadcast the message
