@@ -81,18 +81,30 @@ func (c *Client) readServerPrompt(reader *bufio.Reader) error {
 }
 
 func (c *Client) handleUserInput() {
-	scanner := bufio.NewScanner(os.Stdin)
+    scanner := bufio.NewScanner(os.Stdin)
 
-	for scanner.Scan() {
-		input := scanner.Text()
+    for scanner.Scan() {
+        input := scanner.Text()
 
-		if input == "/exit" {
-			fmt.Println("Exiting the chat. Goodbye...")
-			close(c.input)
-			return
-		}
-		c.input <- input
-	}
+        // Handle special commands
+        if input == "/users" {
+            c.sendMessage("/users\n")
+        } else if input == "/help" {
+            c.displayHelp()
+        } else if input == "/exit" {
+            fmt.Println("Exiting the chat. Goodbye...")
+            close(c.input) // close the input channel only on exit
+            return
+        } else {
+            // Send the input to the input channel
+            c.input <- input
+        }
+    }
+
+    if err := scanner.Err(); err != nil {
+        fmt.Println("Error reading user input:", err)
+        close(c.input) // close the channel in case of error
+    }
 }
 
 func (c *Client) listenForServerMessages(reader *bufio.Reader) {
@@ -109,12 +121,24 @@ func (c *Client) listenForServerMessages(reader *bufio.Reader) {
 }
 
 func (c *Client) sendMessage(msg string) {
-	_, err := fmt.Fprint(c.conn, msg)
-	if err != nil {
-		fmt.Println("Failed to send message.")
-		close(c.input)
-	}
+    writer := bufio.NewWriter(c.conn)
+
+    // Ensure each message ends with a newline (or another delimiter expected by the server)
+    _, err := writer.WriteString(msg + "\n")
+    if err != nil {
+        fmt.Println("Failed to send message:", err)
+        close(c.input)
+        return
+    }
+
+    // Flush the writer to ensure the message is sent
+    err = writer.Flush()
+    if err != nil {
+        fmt.Println("Failed to flush message:", err)
+        close(c.input)
+    }
 }
+
 
 func (c *Client) displayHelp() {
 	fmt.Println("Available commands:")
@@ -124,16 +148,12 @@ func (c *Client) displayHelp() {
 }
 
 func (c *Client) mainLoop() {
-	for input := range c.input {
-		if input == "/users" {
-			c.sendMessage("/users\n")
-		} else if input == "/help" {
-			c.displayHelp()
-		} else {
-			c.sendMessage(input)
-		}
-	}
+    for input := range c.input {
+        c.sendMessage(input)
+    }
+    fmt.Println("Input channel closed. Exiting...")
 }
+
 
 func main() {
 	if len(os.Args) != 2 {

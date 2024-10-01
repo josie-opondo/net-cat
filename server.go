@@ -121,7 +121,7 @@ func (s *Server) handleClient(conn net.Conn) {
 	s.broadcastMsg(conn, []byte(fmt.Sprintf("%s has joined the chat!\n", userName[:len(userName)-1])))
 
 	for _, msg := range s.msgStore {
-		conn.Write([]byte(fmt.Sprintf("%s: %s\r\n", msg.sender, string(msg.content))))
+		conn.Write([]byte(fmt.Sprintf("%s: %s\n", msg.sender, string(msg.content))))
 	}
 
 	s.readConn(conn, strings.TrimSpace(userName))
@@ -137,7 +137,7 @@ func (s *Server) readConn(conn net.Conn, username string) {
 			break
 		}
 
-		formatMsg := []byte(fmt.Sprintf("\n%s: %s\n", username, strings.TrimSpace(string(msg))))
+		formatMsg := []byte(fmt.Sprintf("%s: %s\n", username, strings.TrimSpace(string(msg))))
 		message := Message{
 			sender:  username,
 			content: []byte(formatMsg),
