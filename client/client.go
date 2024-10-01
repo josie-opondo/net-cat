@@ -60,12 +60,12 @@ func (c *Client) Start() {
 }
 
 func (c *Client) readServerPrompt(reader *bufio.Reader) error {
-	prompt, err := reader.ReadString('!')
+	prompt, err := reader.ReadString(':')
 	if err != nil {
 		fmt.Println("Error reading from server: ", err)
 		return err
 	}
-	fmt.Print(prompt)
+	fmt.Print(prompt + " ")
 
 	scanner := bufio.NewScanner(os.Stdin)
 	if scanner.Scan() {

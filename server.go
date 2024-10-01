@@ -37,6 +37,15 @@ func NewServer(port string) (*Server, error) {
 	}, nil
 }
 
+func (s *Server) Logo() (string, error) {
+	logo, err := os.ReadFile("hello.txt")
+	if err != nil {
+		return "", err
+	}
+
+	return string(logo), nil
+}
+
 func (s *Server) Start() error {
 	ln, err := net.Listen("tcp", s.listenAddr)
 	if err != nil {
@@ -94,17 +103,21 @@ func (s *Server) handleClient(conn net.Conn) {
 		<-s.sem // Release token
 	}()
 
-	conn.Write([]byte("Hey buddy, what's your name? !"))
+	logo, _ := s.Logo()
+
+	welcomeMessage := fmt.Sprintf("Welcome to TCP-Chat!\n%s\n[ENTER YOUR NAME]: ", logo)
+
+	conn.Write([]byte(welcomeMessage))
 	userName, _ := bufio.NewReader(conn).ReadString('\n')
 
-	if userName == "" {
-		conn.Write([]byte("Username cannot be empty. Disconnecting...\n"))
+	if len(strings.TrimSpace(userName)) < 3  {
+		conn.Write([]byte("Enter valid name. Disconnecting...\n"))
 		return
 	}
 
 	s.addClient(conn, userName)
 
-	s.broadcastMsg(conn, []byte(fmt.Sprintf("%s has joined the chat!", userName)))
+	s.broadcastMsg(conn, []byte(fmt.Sprintf("%s has joined the chat!", userName[:len(userName)-1])))
 
 	for _, msg := range s.msgStore {
 		conn.Write([]byte(fmt.Sprintf("%s: %s\r\n", msg.sender, string(msg.content))))
@@ -135,7 +148,6 @@ func (s *Server) readConn(conn net.Conn, username string) {
 		s.msgChan <- message
 	}
 }
-
 
 func (s *Server) addClient(conn net.Conn, userName string) {
 	s.clients[conn] = userName
