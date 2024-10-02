@@ -62,8 +62,8 @@ func (c *Client) Start() {
 func (c *Client) readServerPrompt(reader *bufio.Reader) error {
 	prompt, err := reader.ReadString(':')
 	if err != nil {
-		fmt.Println("Error reading from server: ", err)
-		return err
+		fmt.Println("Oops, the chatroom is at max capacity. Try again later... ")
+		os.Exit(0)
 	}
 	fmt.Print(prompt + " ")
 

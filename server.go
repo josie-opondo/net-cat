@@ -92,7 +92,7 @@ func (s *Server) handleConnection() {
 		case s.sem <- struct{}{}: // Acquire token, proceed if there is space
 			go s.handleClient(conn)
 		default:
-			fmt.Println("Max connections reached, rejecting new connection from:", conn.RemoteAddr())
+			conn.Write([]byte("Oops, the chatroom is at max capacity. Try again later..."))
 			conn.Close()
 		}
 	}
