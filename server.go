@@ -142,7 +142,7 @@ func (s *Server) readConn(conn net.Conn, username string) {
 	for {
 		msg, err := reader.ReadString('\n')
 		if err != nil {
-			s.clientInfomer(conn, []byte(fmt.Sprintf("\nOops! %s disconnected\n", username[:len(username)-1])))
+			s.clientInfomer(conn, []byte(fmt.Sprintf("\nOops! %s disconnected\n", username)))
 			break
 		}
 
