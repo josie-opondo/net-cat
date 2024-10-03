@@ -155,8 +155,10 @@ func (s *Server) readConn(conn net.Conn, username string) {
 		}
 
 		// Store and broadcast the message
-		s.msgStore = append(s.msgStore, message)
-		s.msgChan <- message
+		if len(strings.Trim(msg, " ")) > 1 {
+			s.msgStore = append(s.msgStore, message)
+			s.msgChan <- message
+		}
 	}
 }
 

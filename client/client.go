@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -81,38 +82,40 @@ func (c *Client) readServerPrompt(reader *bufio.Reader) error {
 }
 
 func (c *Client) handleUserInput() {
-    scanner := bufio.NewScanner(os.Stdin)
+	scanner := bufio.NewScanner(os.Stdin)
 
-    for scanner.Scan() {
-        input := scanner.Text()
+	for scanner.Scan() {
+		input := scanner.Text()
 
-        // Handle special commands
-        if input == "/users" {
+		// Handle special commands
+		if input == "/users" {
 			c.resetCursor(input)
-            c.sendMessage("/users\n")
-        } else if input == "/help" {
+			c.sendMessage("/users\n")
+		} else if input == "/help" {
 			c.resetCursor(input)
-            c.displayHelp()
-        } else if input == "/exit" {
-            fmt.Println("Exiting the chat. Goodbye...")
-            close(c.input) // close the input channel only on exit
-            return
-        } else {
+			c.displayHelp()
+		} else if input == "/exit" {
+			fmt.Println("Exiting the chat. Goodbye...")
+			close(c.input) // close the input channel only on exit
+			return
+		} else {
 			c.resetCursor(input)
-            // Send the input to the input channel
-            c.input <- input
-        }
-    }
+			// Send the input to the input channel
+			if input != strings.Trim("\n", " ") {
+				c.input <- input
+			}
+		}
+	}
 
-    if err := scanner.Err(); err != nil {
-        fmt.Println("Error reading user input:", err)
-        close(c.input) // close the channel in case of error
-    }
+	if err := scanner.Err(); err != nil {
+		fmt.Println("Error reading user input:", err)
+		close(c.input) // close the channel in case of error
+	}
 }
 
 func (c *Client) resetCursor(msg string) {
-    // Move cursor up one line and clear the line
-    fmt.Print("\033[F\033[K")
+	// Move cursor up one line and clear the line
+	fmt.Print("\033[F\033[K")
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 	message := fmt.Sprintf("[%v][%s]:%s\n", timestamp, c.userName, msg)
 	fmt.Print(message)
@@ -132,24 +135,23 @@ func (c *Client) listenForServerMessages(reader *bufio.Reader) {
 }
 
 func (c *Client) sendMessage(msg string) {
-    writer := bufio.NewWriter(c.conn)
+	writer := bufio.NewWriter(c.conn)
 
-    // Ensure each message ends with a newline (or another delimiter expected by the server)
-    _, err := writer.WriteString(msg + "\n")
-    if err != nil {
-        fmt.Println("Failed to send message:", err)
-        close(c.input)
-        return
-    }
+	// Ensure each message ends with a newline (or another delimiter expected by the server)
+	_, err := writer.WriteString(msg + "\n")
+	if err != nil {
+		fmt.Println("Failed to send message:", err)
+		close(c.input)
+		return
+	}
 
-    // Flush the writer to ensure the message is sent
-    err = writer.Flush()
-    if err != nil {
-        fmt.Println("Failed to flush message:", err)
-        close(c.input)
-    }
+	// Flush the writer to ensure the message is sent
+	err = writer.Flush()
+	if err != nil {
+		fmt.Println("Failed to flush message:", err)
+		close(c.input)
+	}
 }
-
 
 func (c *Client) displayHelp() {
 	fmt.Println("Available commands:")
@@ -159,12 +161,11 @@ func (c *Client) displayHelp() {
 }
 
 func (c *Client) mainLoop() {
-    for input := range c.input {
-        c.sendMessage(input)
-    }
-    fmt.Println("Input channel closed. Exiting...")
+	for input := range c.input {
+		c.sendMessage(input)
+	}
+	fmt.Println("Input channel closed. Exiting...")
 }
-
 
 func main() {
 	if len(os.Args) != 2 {
