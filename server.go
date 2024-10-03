@@ -142,11 +142,15 @@ func (s *Server) readConn(conn net.Conn, username string) {
 	for {
 		msg, err := reader.ReadString('\n')
 		if err != nil {
-			s.clientInfomer(conn, []byte(fmt.Sprintf("\nOops! %s disconnected\n", username)))
+			s.clientInfomer(conn, []byte(fmt.Sprintf("\nOops! %s disconnected\n", s.clients[conn])))
 			break
 		}
 
-		formatMsg := []byte(fmt.Sprintf("%s\n", strings.TrimSpace(string(msg))))
+		formatMsg := s.handleUserInput(conn, msg)
+		if formatMsg == nil {
+			continue
+		}
+
 		message := Message{
 			sender:  username,
 			content: []byte(formatMsg),
@@ -159,6 +163,19 @@ func (s *Server) readConn(conn net.Conn, username string) {
 			s.msgStore = append(s.msgStore, message)
 			s.msgChan <- message
 		}
+	}
+}
+
+func (s *Server) handleUserInput(conn net.Conn, msg string) []byte {
+	switch {
+	case strings.Contains(msg, "/name"):
+		userName := strings.Fields(msg)[1]
+		message := []byte(fmt.Sprintf("%s is now %s\n", s.clients[conn], userName))
+		s.clients[conn] = userName
+		s.clientInfomer(conn, message)
+		return nil
+	default:
+		return []byte(fmt.Sprintf("%s\n", strings.TrimSpace(string(msg))))
 	}
 }
 
