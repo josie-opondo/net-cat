@@ -126,7 +126,6 @@ func (c *Client) listenForServerMessages(reader *bufio.Reader) {
 		msg, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Println("Disconected from the server")
-			close(c.input)
 			return
 		}
 
