@@ -89,17 +89,17 @@ func (c *Client) handleUserInput() {
 
 		// Handle special commands
 		if input == "/users" {
-			c.resetCursor(input)
+			c.resetCursor()
 			c.sendMessage("/users\n")
 		} else if input == "/help" {
-			c.resetCursor(input)
+			c.resetCursor()
 			c.displayHelp()
 		} else if input == "/exit" {
 			fmt.Println("Exiting the chat. Goodbye...")
 			close(c.input) // close the input channel only on exit
 			return
 		} else {
-			c.resetCursor(input)
+			c.resetCursor()
 			// Send the input to the input channel
 			if input != strings.Trim("\n", " ") {
 				c.input <- input
@@ -113,12 +113,12 @@ func (c *Client) handleUserInput() {
 	}
 }
 
-func (c *Client) resetCursor(msg string) {
+func (c *Client) resetCursor() {
 	// Move cursor up one line and clear the line
 	fmt.Print("\033[F\033[K")
-	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	message := fmt.Sprintf("[%v][%s]:%s\n", timestamp, c.userName, msg)
-	fmt.Print(message)
+	// timestamp := time.Now().Format("2006-01-02 15:04:05")
+	// message := fmt.Sprintf("[%v][%s]:%s\n", timestamp, c.userName, msg)
+	// fmt.Print(message)
 }
 
 func (c *Client) listenForServerMessages(reader *bufio.Reader) {
