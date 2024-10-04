@@ -2,12 +2,11 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"net"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -44,11 +43,10 @@ func (s *Server) Logo() (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	return string(logo), nil
 }
 
-func (s *Server) Start() error {
+func (s *Server) Start(ctx context.Context) error {
 	ln, err := net.Listen("tcp", s.listenAddr)
 	if err != nil {
 		return err
@@ -65,8 +63,10 @@ func (s *Server) Start() error {
 
 	go s.handleConnection()
 
-	<-s.shutdown
+	// Listen for shutdown signal from the context
+	<-ctx.Done()
 
+	// Perform shutdown actions
 	close(s.msgChan)
 	s.closeAllConnections()
 
@@ -79,7 +79,6 @@ func (s *Server) handleConnection() {
 		if err != nil {
 			select {
 			case <-s.shutdown:
-				// Server is shutting down, stop accepting new connections
 				return
 			default:
 				fmt.Printf("Error accepting connection: %v\n", err)
@@ -89,10 +88,10 @@ func (s *Server) handleConnection() {
 
 		// Semaphore to limit connections
 		select {
-		case s.sem <- struct{}{}: // Acquire token, proceed if there is space
+		case s.sem <- struct{}{}:
 			go s.handleClient(conn)
 		default:
-			conn.Write([]byte("Oops, the chatroom is at max capacity. Try again later..."))
+			conn.Write([]byte("Chatroom is at max capacity. Try later...\n"))
 			conn.Close()
 		}
 	}
@@ -102,27 +101,22 @@ func (s *Server) handleClient(conn net.Conn) {
 	defer func() {
 		s.removeClient(conn)
 		conn.Close()
-		<-s.sem // Release token
+		<-s.sem
 	}()
 
 	logo, _ := s.Logo()
-
 	welcomeMessage := fmt.Sprintf("Welcome to TCP-Chat!\n%s\n[ENTER YOUR NAME]: ", logo)
-
 	conn.Write([]byte(welcomeMessage))
-	userName, _ := bufio.NewReader(conn).ReadString('\n')
 
+	userName, _ := bufio.NewReader(conn).ReadString('\n')
 	if len(strings.TrimSpace(userName)) < 3 {
-		conn.Write([]byte("Enter valid name. Disconnecting...\n"))
+		conn.Write([]byte("Enter a valid name. Disconnecting...\n"))
 		return
 	}
 
 	s.addClient(conn, userName)
 	conn.Write([]byte(fmt.Sprintf("Welcome, %s!\n", userName[:len(userName)-1])))
-
-	msg := fmt.Sprintf("%s has joined the chat!\n", userName[:len(userName)-1])
-
-	s.clientInfomer(conn, []byte(msg))
+	s.clientInfomer(conn, []byte(fmt.Sprintf("%s has joined the chat!\n", userName[:len(userName)-1])))
 
 	for _, msg := range s.msgStore {
 		timestamp := msg.msgDate.Format("2006-01-02 15:04:05")
@@ -138,7 +132,6 @@ func (s *Server) handleClient(conn net.Conn) {
 
 func (s *Server) readConn(conn net.Conn, username string) {
 	reader := bufio.NewReader(conn)
-
 	for {
 		msg, err := reader.ReadString('\n')
 		if err != nil {
@@ -226,13 +219,20 @@ func main() {
 	}
 	fmt.Println("Server running on port: ", port)
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	go func() {
-		<-sigChan
-		fmt.Println("\nServer shutting down...")
-		close(server.shutdown)
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			input := scanner.Text()
+			if input == "exit" {
+				cancel()
+				fmt.Println("\nServer shutting down...")
+				break
+			}
+		}
 	}()
-	server.Start()
+
+	server.Start(ctx)
 }
