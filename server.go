@@ -39,10 +39,23 @@ func NewServer(port string) (*Server, error) {
 }
 
 func (s *Server) Logo() (string, error) {
-	logo, err := os.ReadFile("hello.txt")
-	if err != nil {
-		return "", err
-	}
+	logo := "\033[34m" + // Start blue background
+	"          _nnnn_\n" +
+	"         \033[32mdGGGGMMb\033[34m\n" + // Green
+	"        \033[32m@p~qp~~qMb\033[34m\n" + // Green
+	"        \033[32mM|\033[33m@\033[32m||\033[33m@) M|\033[34m\n" + // Green with yellow for '@'
+	"        \033[32m@,----.JM|\033[34m\n" + // Green
+	"       \033[32mJS^\\__/  qKL\033[34m\n" + // Green
+	"      \033[32mdZP        qKRb\033[34m\n" + // Green
+	"     \033[32mdZP          qKKb\033[34m\n" + // Green
+	"    \033[32mfZP            SMMb\033[34m\n" + // Green
+	"    \033[32mHZM            MMMM\033[34m\n" + // Green
+	"    \033[32mFqM            MMMM\033[34m\n" + // Green
+	" \033[34m__\033[32m | \".        |\\dS\"qML\033[34m\n" + // Green with blue
+	" \033[34m|    `.        | `' \\Zq\033[34m\n" +
+	" \033[34m_)      \\.___.,|     .'\033[34m\n" +
+	" \033[34m\\____   )MMMMMP|   .'\033[34m\n" +
+	"      `-'       `--'\033[0m" // Reset colors
 	return string(logo), nil
 }
 
