@@ -40,22 +40,22 @@ func NewServer(port string) (*Server, error) {
 
 func (s *Server) Logo() (string, error) {
 	logo := "\033[34m" + // Start blue background
-	"          _nnnn_\n" +
-	"         \033[32mdGGGGMMb\033[34m\n" + // Green
-	"        \033[32m@p~qp~~qMb\033[34m\n" + // Green
-	"        \033[32mM|\033[33m@\033[32m||\033[33m@) M|\033[34m\n" + // Green with yellow for '@'
-	"        \033[32m@,----.JM|\033[34m\n" + // Green
-	"       \033[32mJS^\\__/  qKL\033[34m\n" + // Green
-	"      \033[32mdZP        qKRb\033[34m\n" + // Green
-	"     \033[32mdZP          qKKb\033[34m\n" + // Green
-	"    \033[32mfZP            SMMb\033[34m\n" + // Green
-	"    \033[32mHZM            MMMM\033[34m\n" + // Green
-	"    \033[32mFqM            MMMM\033[34m\n" + // Green
-	" \033[34m__\033[32m | \".        |\\dS\"qML\033[34m\n" + // Green with blue
-	" \033[34m|    `.        | `' \\Zq\033[34m\n" +
-	" \033[34m_)      \\.___.,|     .'\033[34m\n" +
-	" \033[34m\\____   )MMMMMP|   .'\033[34m\n" +
-	"      `-'       `--'\033[0m" // Reset colors
+		"          _nnnn_\n" +
+		"         \033[32mdGGGGMMb\033[34m\n" + // Green
+		"        \033[32m@p~qp~~qMb\033[34m\n" + // Green
+		"        \033[32mM|\033[33m@\033[32m||\033[33m@) M|\033[34m\n" + // Green with yellow for '@'
+		"        \033[32m@,----.JM|\033[34m\n" + // Green
+		"       \033[32mJS^\\__/  qKL\033[34m\n" + // Green
+		"      \033[32mdZP        qKRb\033[34m\n" + // Green
+		"     \033[32mdZP          qKKb\033[34m\n" + // Green
+		"    \033[32mfZP            SMMb\033[34m\n" + // Green
+		"    \033[32mHZM            MMMM\033[34m\n" + // Green
+		"    \033[32mFqM            MMMM\033[34m\n" + // Green
+		" \033[34m__\033[32m | \".        |\\dS\"qML\033[34m\n" + // Green with blue
+		" \033[34m|    `.        | `' \\Zq\033[34m\n" +
+		" \033[34m_)      \\.___.,|     .'\033[34m\n" +
+		" \033[34m\\____   )MMMMMP|   .'\033[34m\n" +
+		"      `-'       `--'\033[0m" // Reset colors
 	return string(logo), nil
 }
 
@@ -192,7 +192,11 @@ func (s *Server) addClient(conn net.Conn, userName string) {
 func (s *Server) broadcastMsg(conn net.Conn, msg []byte) {
 	for client := range s.clients {
 		timestamp := time.Now().Format("2006-01-02 15:04:05")
+		clearscreen := "\033[F\033[K"
 		message := fmt.Sprintf("[%v][%s]:%s", timestamp, s.clients[conn], msg)
+		if client == conn {
+			message = fmt.Sprintf("%v[%v][%s]:%s", clearscreen, timestamp, s.clients[conn], msg)
+		}
 		_, err := client.Write([]byte(message))
 		if err != nil {
 			fmt.Println("Error writing to connection:", err)
