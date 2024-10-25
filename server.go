@@ -227,8 +227,31 @@ func (s *Server) closeAllConnections() {
 	fmt.Println("All connections closed.")
 }
 
+func Check(arg string) bool {
+	for _, char := range arg {
+		if char < '0' || char > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 func main() {
-	port := ":4080"
+	port := ""
+	switch len(os.Args) {
+		case 1:
+            port = ":8989"
+        case 2:
+            if !Check(os.Args[1]) {
+                fmt.Println("[USAGE]: ./TCPChat $port")
+                return
+            }
+            port = ":" + os.Args[1]
+        default:
+            fmt.Println("[USAGE]: ./TCPChat $port")
+            return
+    }
+	
 	server, err := NewServer(port)
 	if err != nil {
 		fmt.Println(err)
