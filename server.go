@@ -184,6 +184,10 @@ func (s *Server) handleUserInput(conn net.Conn, msg string) []byte {
 		message := []byte(fmt.Sprintf("%s is now %s\n", s.clients[conn], userName))
 		s.clients[conn] = userName
 		s.clientInfomer(conn, message, true)
+
+		// Confirm the name change to the client who requested it
+		confirmation := fmt.Sprintf("Success! You are now %s\n", userName)
+		s.clientInfomer(conn, []byte(confirmation), false)
 		return nil
 	case strings.Contains(msg, "/users"):
 		message := "Buddies currently in the chat:\n"
