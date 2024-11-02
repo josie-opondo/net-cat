@@ -196,6 +196,10 @@ func (s *Server) handleUserInput(conn net.Conn, msg string) []byte {
 		}
 		s.clientInfomer(conn, []byte(message), false)
 		return nil
+	case strings.Contains(msg, "/help"):
+		message := "Available commands:\n/name [new-name]: Change your name\n/users: See who's in the chat\n/help: Display this log of available commands\n/quit: Exit the chat\n"
+        s.clientInfomer(conn, []byte(message), false)
+        return nil
 	default:
 		return []byte(fmt.Sprintf("%s\n", strings.TrimSpace(string(msg))))
 	}
