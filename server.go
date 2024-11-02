@@ -180,6 +180,13 @@ func (s *Server) handleUserInput(conn net.Conn, msg string) []byte {
 		s.clients[conn] = userName
 		s.clientInfomer(conn, message)
 		return nil
+	case strings.Contains(msg, "/users"):
+		message := "Buddies currently in the chat:\n"
+		for user := range s.clients {
+			message += fmt.Sprintf("%s\n", s.clients[user])
+		}
+		s.clientInfomer(conn, []byte(message))
+		return nil
 	default:
 		return []byte(fmt.Sprintf("%s\n", strings.TrimSpace(string(msg))))
 	}
