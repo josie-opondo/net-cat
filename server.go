@@ -175,6 +175,11 @@ func (s *Server) readConn(conn net.Conn, username string) {
 func (s *Server) handleUserInput(conn net.Conn, msg string) []byte {
 	switch {
 	case strings.Contains(msg, "/name"):
+		if len(strings.Fields(msg)) < 2 {
+			message := []byte("Enter new name after /name\n")
+			s.clientInfomer(conn, message, false)
+			return nil
+		}
 		userName := strings.Fields(msg)[1]
 		message := []byte(fmt.Sprintf("%s is now %s\n", s.clients[conn], userName))
 		s.clients[conn] = userName
