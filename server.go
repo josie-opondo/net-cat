@@ -129,7 +129,7 @@ func (s *Server) handleClient(conn net.Conn) {
 
 	s.addClient(conn, userName)
 	conn.Write([]byte(fmt.Sprintf("Welcome, %s!\n", userName[:len(userName)-1])))
-	s.clientInfomer(conn, []byte(fmt.Sprintf("%s has joined the chat!\n", userName[:len(userName)-1])))
+	s.clientInfomer(conn, []byte(fmt.Sprintf("%s has joined the chat!\n", userName[:len(userName)-1])), true)
 
 	for _, msg := range s.msgStore {
 		timestamp := msg.msgDate.Format("2006-01-02 15:04:05")
@@ -148,7 +148,7 @@ func (s *Server) readConn(conn net.Conn, username string) {
 	for {
 		msg, err := reader.ReadString('\n')
 		if err != nil {
-			s.clientInfomer(conn, []byte(fmt.Sprintf("\nOops! %s disconnected\n", s.clients[conn])))
+			s.clientInfomer(conn, []byte(fmt.Sprintf("\nOops! %s disconnected\n", s.clients[conn])), true)
 			break
 		}
 
@@ -178,14 +178,14 @@ func (s *Server) handleUserInput(conn net.Conn, msg string) []byte {
 		userName := strings.Fields(msg)[1]
 		message := []byte(fmt.Sprintf("%s is now %s\n", s.clients[conn], userName))
 		s.clients[conn] = userName
-		s.clientInfomer(conn, message)
+		s.clientInfomer(conn, message, true)
 		return nil
 	case strings.Contains(msg, "/users"):
 		message := "Buddies currently in the chat:\n"
 		for user := range s.clients {
 			message += fmt.Sprintf("%s\n", s.clients[user])
 		}
-		s.clientInfomer(conn, []byte(message))
+		s.clientInfomer(conn, []byte(message), false)
 		return nil
 	default:
 		return []byte(fmt.Sprintf("%s\n", strings.TrimSpace(string(msg))))
@@ -211,15 +211,22 @@ func (s *Server) broadcastMsg(conn net.Conn, msg []byte) {
 	}
 }
 
-func (s *Server) clientInfomer(conn net.Conn, msg []byte) {
-	for client := range s.clients {
-		if client != conn {
-			message := fmt.Sprintf("\n%s\n", msg)
-			_, err := client.Write([]byte(message))
-			if err != nil {
-				fmt.Println("Error writing to connection:", err)
+func (s *Server) clientInfomer(conn net.Conn, msg []byte, broadcast bool) {
+	if broadcast {
+		for client := range s.clients {
+			if client != conn {
+				message := fmt.Sprintf("\n%s\n", msg)
+				_, err := client.Write([]byte(message))
+				if err != nil {
+					fmt.Println("Error writing to connection:", err)
+				}
 			}
 		}
+	} else {
+		_, err := conn.Write(msg)
+		if err!= nil {
+            fmt.Println("Error writing to connection:", err)
+        }
 	}
 }
 
