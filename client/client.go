@@ -86,24 +86,10 @@ func (c *Client) handleUserInput() {
 
 	for scanner.Scan() {
 		input := scanner.Text()
-
-		// Handle special commands
-		if input == "/users" {
-			c.resetCursor()
-			c.sendMessage("/users\n")
-		} else if input == "/help" {
-			c.resetCursor()
-			c.displayHelp()
-		} else if input == "/exit" {
-			fmt.Println("Exiting the chat. Goodbye...")
-			close(c.input) // close the input channel only on exit
-			return
-		} else {
-			c.resetCursor()
-			// Send the input to the input channel
-			if input != strings.Trim("\n", " ") {
-				c.input <- input
-			}
+		c.resetCursor()
+		// Send the input to the input channel
+		if input != strings.Trim("\n", " ") {
+			c.input <- input
 		}
 	}
 
