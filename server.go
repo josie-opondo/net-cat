@@ -148,7 +148,7 @@ func (s *Server) readConn(conn net.Conn, username string) {
 	for {
 		msg, err := reader.ReadString('\n')
 		if err != nil {
-			s.clientInfomer(conn, []byte(fmt.Sprintf("\nOops! %s disconnected\n", s.clients[conn])), true)
+			s.clientInfomer(conn, []byte(fmt.Sprintf("\n%s has left the chat\n", s.clients[conn])), true)
 			break
 		}
 
@@ -186,20 +186,25 @@ func (s *Server) handleUserInput(conn net.Conn, msg string) []byte {
 		s.clientInfomer(conn, message, true)
 
 		// Confirm the name change to the client who requested it
-		confirmation := fmt.Sprintf("Success! You are now %s\n", userName)
+		confirmation := fmt.Sprintf("\nSuccess! You are now %s\n\n", userName)
 		s.clientInfomer(conn, []byte(confirmation), false)
 		return nil
 	case strings.Contains(msg, "/users"):
-		message := "Buddies currently in the chat:\n"
+		message := "\nBuddies currently in the chat:\n"
 		for user := range s.clients {
-			message += fmt.Sprintf("%s\n", s.clients[user])
+			message += fmt.Sprintf("%s\n\n", s.clients[user])
 		}
 		s.clientInfomer(conn, []byte(message), false)
 		return nil
 	case strings.Contains(msg, "/help"):
-		message := "\nAvailable commands:\n/name [new-name]: Change your name\n/users: See who's in the chat\n/help: Display this log of available commands\n/quit: Exit the chat\n"
+		message := "\nAvailable commands:\n/name [new-name]: Change your name\n/users: See who's in the chat\n/help: Display this log of available commands\n/quit: Leave the chat\n\n"
         s.clientInfomer(conn, []byte(message), false)
         return nil
+	case strings.Contains(msg, "/quit"):
+		message := "\nExiting the chat..."
+		s.clientInfomer(conn, []byte(message), false)
+		conn.Close()
+		return nil
 	default:
 		return []byte(fmt.Sprintf("%s\n", strings.TrimSpace(string(msg))))
 	}
