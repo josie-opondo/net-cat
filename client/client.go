@@ -86,7 +86,7 @@ func (c *Client) handleUserInput() {
 
 	for scanner.Scan() {
 		input := scanner.Text()
-		c.resetCursor()
+		// c.resetCursor()
 		// Send the input to the input channel
 		if input != strings.Trim("\n", " ") {
 			c.input <- input
@@ -99,10 +99,10 @@ func (c *Client) handleUserInput() {
 	}
 }
 
-func (c *Client) resetCursor() {
-	// Move cursor up one line and clear the line
-	fmt.Print("\033[F\033[K")
-}
+// func (c *Client) resetCursor() {
+// 	// Move cursor up one line and clear the line
+// 	fmt.Print("\033[F\033[K")
+// }
 
 func (c *Client) listenForServerMessages(reader *bufio.Reader) {
 	for {
