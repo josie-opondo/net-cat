@@ -102,9 +102,6 @@ func (c *Client) handleUserInput() {
 func (c *Client) resetCursor() {
 	// Move cursor up one line and clear the line
 	fmt.Print("\033[F\033[K")
-	// timestamp := time.Now().Format("2006-01-02 15:04:05")
-	// message := fmt.Sprintf("[%v][%s]:%s\n", timestamp, c.userName, msg)
-	// fmt.Print(message)
 }
 
 func (c *Client) listenForServerMessages(reader *bufio.Reader) {
@@ -136,13 +133,6 @@ func (c *Client) sendMessage(msg string) {
 		fmt.Println("Failed to flush message:", err)
 		close(c.input)
 	}
-}
-
-func (c *Client) displayHelp() {
-	fmt.Println("Available commands:")
-	fmt.Println("/users - List online users")
-	fmt.Println("/help - Show help")
-	fmt.Println("/exit - Exit the chat")
 }
 
 func (c *Client) mainLoop() {
