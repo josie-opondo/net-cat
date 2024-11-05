@@ -128,7 +128,7 @@ func (s *Server) handleClient(conn net.Conn) {
 	}
 
 	s.addClient(conn, userName)
-	conn.Write([]byte(fmt.Sprintf("Welcome, %s!\nUse /help for more options.\n\n", userName[:len(userName)-1])))
+	conn.Write([]byte(fmt.Sprintf("Welcome, %s!\nUse /help for more options.\n", userName[:len(userName)-1])))
 	s.clientInfomer(conn, []byte(fmt.Sprintf("%s has joined the chat!\n", userName[:len(userName)-1])), true)
 
 	for _, msg := range s.msgStore {
@@ -192,7 +192,7 @@ func (s *Server) handleUserInput(conn net.Conn, msg string) []byte {
 	case strings.Contains(msg, "/users"):
 		message := "\nBuddies currently in the chat:\n"
 		for user := range s.clients {
-			message += fmt.Sprintf("%s\n\n", s.clients[user])
+			message += fmt.Sprintf("%s\n", s.clients[user])
 		}
 		s.clientInfomer(conn, []byte(message), false)
 		return nil
