@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -172,7 +173,7 @@ func (s *Server) handleClient(conn net.Conn) {
 
 	for _, msg := range s.msgStore {
 		timestamp := msg.msgDate.Format("2006-01-02 15:04:05")
-		message := fmt.Sprintf("[%v][%s]:%s\n", timestamp, msg.sender, string(msg.content))
+		message := fmt.Sprintf("[%v][%s]:%s", timestamp, msg.sender, string(msg.content))
 		_, err := conn.Write([]byte(message))
 		if err != nil {
 			fmt.Println("Error writing to connection:", err)
@@ -340,7 +341,7 @@ func (s *Server) broadcastToRoom(sender net.Conn, msg []byte, exclude net.Conn) 
 		// message := fmt.Sprintf("[%v][%s]:%s", timestamp, client.userName, msg)
 
 		message := fmt.Sprintf("%v[%v][%s]:%s", clearscreen, timestamp, client.userName, msg)
-
+		s.Logs(message)
 		_, err := client.conn.Write([]byte(message))
 		if err != nil {
 			fmt.Println("Error writing to connection:", err)
@@ -378,6 +379,7 @@ func (s *Server) broadcastMsg(conn net.Conn, msg []byte) {
 		timestamp := time.Now().Format("2006-01-02 15:04:05")
 		clearscreen := "\033[F\033[K"
 		message := fmt.Sprintf("[%v][%s]:%s", timestamp, s.clients[conn], msg)
+		s.Logs(message)
 		if client == conn {
 			message = fmt.Sprintf("%v[%v][%s]:%s", clearscreen, timestamp, s.clients[conn], msg)
 		}
@@ -393,6 +395,7 @@ func (s *Server) clientInfomer(conn net.Conn, msg []byte, broadcast bool) {
 		for client := range s.clients {
 			if client != conn {
 				message := fmt.Sprintf("\r%s\n", msg)
+				s.Logs(message)
 				_, err := client.Write([]byte(message))
 				if err != nil {
 					fmt.Println("Error writing to connection:", err)
@@ -400,6 +403,7 @@ func (s *Server) clientInfomer(conn net.Conn, msg []byte, broadcast bool) {
 			}
 		}
 	} else {
+		s.Logs(string(msg))
 		_, err := conn.Write(msg)
 		if err != nil {
 			fmt.Println("Error writing to connection:", err)
@@ -454,6 +458,20 @@ func Check(arg string) bool {
 	return true
 }
 
+var mu sync.Mutex
+
+func (s *Server) Logs(msg string) {
+	mu.Lock()
+	defer mu.Unlock()
+	filename := "history.log"
+	fileDescriptor, err:= os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
+	defer fileDescriptor.Close()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fileDescriptor.WriteString(msg)
+}
 func main() {
 	var port string
 	args := os.Args
