@@ -82,7 +82,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 	go func() {
 		for msg := range s.msgChan {
-			s.broadcastMsg(msg.conn, msg.content)
+			s.broadcastToRoom(msg.conn, msg.content)
 		}
 	}()
 
@@ -225,7 +225,7 @@ func (s *Server) handleUserInput(client Client, msg string) []byte {
 		client.userName = newUserName
 		s.clients[client.conn] = client.userName
 		message := []byte(fmt.Sprintf("%s is now %s\n", oldUserName, newUserName))
-		s.broadcastToRoom(client.conn, message, client.conn)
+		s.broadcastToRoom(client.conn, message)
 
 		// Confirm the name change to the client who requested it
 		confirmation := fmt.Sprintf("\nSuccess! You are now %s\n\n", newUserName)
@@ -307,7 +307,7 @@ func (s *Server) leaveRoom(conn net.Conn) {
 			s.clientInfomer(conn, []byte(fmt.Sprintf("You have left the room: %s\n", currentRoom)), false)
 
 			// notify others
-			s.broadcastToRoom(conn, []byte(fmt.Sprintf("%s has left the room!", s.clients[conn])), conn)
+			s.clientInfomer(conn, []byte(fmt.Sprintf("%s has left the room!", s.clients[conn])), true)
 
 			break
 		}
@@ -319,27 +319,29 @@ func (s *Server) leaveRoom(conn net.Conn) {
 	}
 }
 
-func (s *Server) broadcastToRoom(sender net.Conn, msg []byte, exclude net.Conn) {
-	currentRoom, ok := s.clientRooms[sender]
-	if !ok {
-		return
-	}
+func (s *Server) broadcastToRoom(sender net.Conn, msg []byte) {
+	currentRoom := s.clientRooms[sender]
 
+	counter := 0
 	for _, client := range s.rooms[currentRoom] {
+		if counter == 0 {
 
-		if client.conn == sender || client.conn == exclude {
-			continue
-		}
+			timestamp := TimeFormat()
+			clearscreen := "\033[F\033[K"
+			// msgLog := fmt.Sprintf("[%v][%s]:%s", timestamp, s.clients[sender], msg)
+			message := fmt.Sprintf("[%v][%s]:%s", timestamp, s.clients[sender], msg)
+			// fmt.Println(s.clientRooms[sender], client.userName, s.clients[sender])
 
-		timestamp := TimeFormat()
-		clearscreen := "\r\n"
-		// message := fmt.Sprintf("[%v][%s]:%s", timestamp, client.userName, msg)
-
-		message := fmt.Sprintf("%v[%v][%s]:%s", clearscreen, timestamp, client.userName, msg)
-		s.Logs(message)
-		_, err := client.conn.Write([]byte(message))
-		if err != nil {
-			fmt.Println("Error writing to connection:", err)
+			s.Logs(message)
+			if client.conn == sender {
+				message = fmt.Sprintf("%v[%v][%s]:%s", clearscreen, timestamp, client.userName, msg)
+			}
+			// message := fmt.Sprintf("[%v][%s]:%s", timestamp, client.userName, msg)
+			_, err := client.conn.Write([]byte(message))
+			if err != nil {
+				fmt.Println("Error writing to connection:", err)
+			}
+			counter++
 		}
 	}
 }
@@ -369,21 +371,21 @@ func (s *Server) addClient(conn net.Conn, client Client) {
 	s.clients[conn] = client.userName
 }
 
-func (s *Server) broadcastMsg(conn net.Conn, msg []byte) {
-	for client := range s.clients {
-		timestamp := time.Now().Format("2006-01-02 15:04:05")
-		clearscreen := "\033[F\033[K"
-		message := fmt.Sprintf("[%v][%s]:%s", timestamp, s.clients[conn], msg)
-		s.Logs(message)
-		if client == conn {
-			message = fmt.Sprintf("%v[%v][%s]:%s", clearscreen, timestamp, s.clients[conn], msg)
-		}
-		_, err := client.Write([]byte(message))
-		if err != nil {
-			fmt.Println("Error writing to connection:", err)
-		}
-	}
-}
+// func (s *Server) broadcastMsg(conn net.Conn, msg []byte) {
+// 	for client := range s.clients {
+// 		timestamp := time.Now().Format("2006-01-02 15:04:05")
+// 		clearscreen := "\033[F\033[K"
+// 		message := fmt.Sprintf("[%v][%s]:%s", timestamp, s.clients[conn], msg)
+// 		s.Logs(message)
+// 		if client == conn {
+// 			message = fmt.Sprintf("%v[%v][%s]:%s", clearscreen, timestamp, s.clients[conn], msg)
+// 		}
+// 		_, err := client.Write([]byte(message))
+// 		if err != nil {
+// 			fmt.Println("Error writing to connection:", err)
+// 		}
+// 	}
+// }
 
 func (s *Server) clientInfomer(conn net.Conn, msg []byte, broadcast bool) {
 	if broadcast {
@@ -458,7 +460,7 @@ func (s *Server) Logs(msg string) {
 	mu.Lock()
 	defer mu.Unlock()
 	filename := "history.log"
-	fileDescriptor, err:= os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
+	fileDescriptor, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0o644)
 	defer fileDescriptor.Close()
 	if err != nil {
 		fmt.Println(err)
@@ -466,6 +468,7 @@ func (s *Server) Logs(msg string) {
 	}
 	fileDescriptor.WriteString(msg)
 }
+
 func main() {
 	var port string
 	args := os.Args
