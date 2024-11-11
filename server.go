@@ -141,14 +141,14 @@ func (s *Server) handleClient(conn net.Conn) {
 	}
 
 	userName = strings.TrimSpace(userName)
-	// check if user name exist, purpose is to ensure each user has a unique username
+	// check if username exist, purpose is to ensure each user has a unique username
 
 	ok := UserNames[userName]
 	if !ok {
 		UserNames[userName] = true
 	} else {
 		// fmt.Println("username already exists try another name")
-		// msg := "%s already existed so you were assigned a new nickname [%s]"
+		// msg := "%s already existed, so you were assigned a new nickname [%s]"
 		randInt := rand.Intn(10)
 		userName = fmt.Sprintf("%s%d", userName, randInt)
 	}
@@ -284,19 +284,15 @@ func (s *Server) handleUserInput(client Client, msg string) []byte {
 }
 
 func (s *Server) leaveRoom(conn net.Conn) {
-	currentRoom, ok := s.clientRooms[conn]
+	currentRoom, _ := s.clientRooms[conn]
 
-	if !ok || currentRoom == "" {
-		s.clientInfomer(conn, []byte("You are not in any room.\n"), false)
-		return
-	}
+	//if !ok || currentRoom == "" {
+	//	s.clientInfomer(conn, []byte("You are not in any room.\n"), false)
+	//	return
+	//}
 
 	// get list of clients in the current room
-	clients, roomExists := s.rooms[currentRoom]
-	if !roomExists {
-		s.clientInfomer(conn, []byte("Room does not exist.\n"), false)
-		return
-	}
+	clients, _ := s.rooms[currentRoom]
 
 	// find and remove the client from the room's client slice
 	for i, client := range clients {
