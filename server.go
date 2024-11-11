@@ -351,7 +351,7 @@ func (s *Server) joinRoom(client Client, roomName string) {
 	// add the client to the new room
 	s.rooms[roomName] = append(s.rooms[roomName], client)
 	s.clientRooms[client.conn] = roomName
-	s.clientInfomer(client.conn, []byte(fmt.Sprintf("You have joined room: %s\n", roomName)), false)
+	s.clientInfomer(client.conn, []byte(fmt.Sprintf("You have joined: %s\n", roomName)), false)
 
 	// notify the other clients in the room
 	s.broadcastToRoom(client.conn, []byte(fmt.Sprintf("%s has joined the room!\n", client.userName)), nil)
