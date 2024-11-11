@@ -403,7 +403,6 @@ func (s *Server) clientInfomer(conn net.Conn, msg []byte, broadcast bool) {
 			}
 		}
 	} else {
-		s.Logs(string(msg))
 		_, err := conn.Write(msg)
 		if err != nil {
 			fmt.Println("Error writing to connection:", err)
