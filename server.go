@@ -169,7 +169,7 @@ func (s *Server) handleClient(conn net.Conn) {
 	s.joinRoom(client, roomName)
 
 	conn.Write([]byte(fmt.Sprintf("Welcome, %s!\nUse /help for more options.\n", userName)))
-	s.clientInfomer(conn, []byte(fmt.Sprintf("%s has joined the chat!\n", userName)), true)
+	// s.clientInfomer(conn, []byte(fmt.Sprintf("%s has joined the chat!\n", userName)), true)
 
 	for _, msg := range s.msgStore {
 		timestamp := msg.msgDate.Format("2006-01-02 15:04:05")
@@ -332,7 +332,7 @@ func (s *Server) broadcastToRoom(sender net.Conn, msg []byte, exclude net.Conn) 
 		}
 
 		timestamp := TimeFormat()
-		clearscreen := "\033[F\033[K"
+		clearscreen := "\r\n"
 		// message := fmt.Sprintf("[%v][%s]:%s", timestamp, client.userName, msg)
 
 		message := fmt.Sprintf("%v[%v][%s]:%s", clearscreen, timestamp, client.userName, msg)
@@ -354,7 +354,7 @@ func (s *Server) joinRoom(client Client, roomName string) {
 	s.clientInfomer(client.conn, []byte(fmt.Sprintf("You have joined: %s\n", roomName)), false)
 
 	// notify the other clients in the room
-	s.broadcastToRoom(client.conn, []byte(fmt.Sprintf("%s has joined the room!\n", client.userName)), nil)
+	s.clientInfomer(client.conn, []byte(fmt.Sprintf("%s has joined the room!\n", client.userName)), true)
 }
 
 // for logging errors to a file, need to see whats happening when program is running
