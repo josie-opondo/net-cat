@@ -285,12 +285,7 @@ func (s *Server) handleUserInput(client Client, msg string) []byte {
 }
 
 func (s *Server) leaveRoom(conn net.Conn) {
-	currentRoom, ok := s.clientRooms[conn]
-
-	if !ok || currentRoom == "" {
-		s.clientInfomer(conn, []byte("You are not in any room.\n"), false)
-		return
-	}
+	currentRoom := s.clientRooms[conn]
 
 	// get list of clients in the current room
 	clients, roomExists := s.rooms[currentRoom]
