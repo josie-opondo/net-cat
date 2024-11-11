@@ -168,8 +168,8 @@ func (s *Server) handleClient(conn net.Conn) {
 
 	s.joinRoom(client, roomName)
 
-	conn.Write([]byte(fmt.Sprintf("Welcome, %s!\nUse /help for more options.\n", userName[:len(userName)-1])))
-	s.clientInfomer(conn, []byte(fmt.Sprintf("%s has joined the chat!\n", userName[:len(userName)-1])), true)
+	conn.Write([]byte(fmt.Sprintf("Welcome, %s!\nUse /help for more options.\n", userName)))
+	s.clientInfomer(conn, []byte(fmt.Sprintf("%s has joined the chat!\n", userName)), true)
 
 	for _, msg := range s.msgStore {
 		timestamp := msg.msgDate.Format("2006-01-02 15:04:05")
