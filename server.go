@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -215,18 +216,25 @@ func (s *Server) addClient(conn net.Conn, userName string) {
 }
 
 func (s *Server) broadcastMsg(conn net.Conn, msg []byte) {
-	for client := range s.clients {
+	// for client := range s.clients {
 		timestamp := time.Now().Format("2006-01-02 15:04:05")
-		clearscreen := "\033[F\033[K"
-		message := fmt.Sprintf("[%v][%s]:%s", timestamp, s.clients[conn], msg)
-		if client == conn {
-			message = fmt.Sprintf("%v[%v][%s]:%s", clearscreen, timestamp, s.clients[conn], msg)
+		message := fmt.Sprintf("[%v][%s]:%s\n", timestamp, s.clients[conn], msg)
+	
+		// Log the message once
+		s.Logs(message)
+	
+		// Broadcast the message to all clients, including the sender only once
+		for client := range s.clients {
+			if client == conn {
+				clearScreen := "\033[F\033[K" // This is an ANSI escape code to clear the screen
+				client.Write([]byte(clearScreen))
+			}
+			_, err := client.Write([]byte(message))
+			if err != nil {
+				fmt.Println("Error writing to connection:", err)
+			}
 		}
-		_, err := client.Write([]byte(message))
-		if err != nil {
-			fmt.Println("Error writing to connection:", err)
-		}
-	}
+	// }
 }
 
 func (s *Server) clientInfomer(conn net.Conn, msg []byte, broadcast bool) {
@@ -234,6 +242,7 @@ func (s *Server) clientInfomer(conn net.Conn, msg []byte, broadcast bool) {
 		for client := range s.clients {
 			if client != conn {
 				message := fmt.Sprintf("\n%s\n", msg)
+				s.Logs(message)
 				_, err := client.Write([]byte(message))
 				if err != nil {
 					fmt.Println("Error writing to connection:", err)
@@ -258,6 +267,23 @@ func (s *Server) closeAllConnections() {
 	}
 	fmt.Println("All connections closed.")
 }
+
+var mu sync.Mutex
+
+func (s *Server) Logs(msg string) {
+	mu.Lock()
+	defer mu.Unlock()
+	filename := "history.log"
+	fileDescriptor, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0o644)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer fileDescriptor.Close()
+	fileDescriptor.WriteString(msg)
+}
+
 
 func Check(arg string) bool {
 	for _, char := range arg {
