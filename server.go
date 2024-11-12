@@ -319,6 +319,7 @@ func (s *Server) leaveRoom(conn net.Conn) {
 	}
 }
 
+
 func (s *Server) broadcastToRoom(sender net.Conn, msg []byte) {
 	currentRoom := s.clientRooms[sender]
 	timestamp := TimeFormat()
@@ -335,7 +336,7 @@ func (s *Server) broadcastToRoom(sender net.Conn, msg []byte) {
 		if err != nil {
 			fmt.Println("Error writing to connection:", err)
 		}
-	}
+  }
 }
 
 func (s *Server) joinRoom(client Client, roomName string) {
