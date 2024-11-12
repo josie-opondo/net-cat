@@ -278,7 +278,7 @@ func (s *Server) handleUserInput(client Client, msg string) []byte {
 		}
 
 	default:
-		return []byte(fmt.Sprintf("%s\n", strings.TrimSpace(string(msg))))
+		return []byte(msg)
 	}
 
 	return nil
@@ -322,8 +322,8 @@ func (s *Server) leaveRoom(conn net.Conn) {
 func (s *Server) broadcastToRoom(sender net.Conn, msg []byte) {
 	currentRoom := s.clientRooms[sender]
 	timestamp := TimeFormat()
-		message := fmt.Sprintf("[%v][%s]:%s", timestamp, s.clients[sender], msg)
-		s.Logs(message)
+	message := fmt.Sprintf("[%v][%s]:%s", timestamp, s.clients[sender], msg)
+	s.Logs(message)
 
 	for _, client := range s.rooms[currentRoom] {
 		if client.conn == sender {
@@ -453,7 +453,7 @@ func (s *Server) Logs(msg string) {
 	defer mu.Unlock()
 	filename := "history.log"
 	fileDescriptor, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0o644)
-	
+
 	if err != nil {
 		fmt.Println(err)
 		return
