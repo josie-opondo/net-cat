@@ -467,7 +467,7 @@ func main() {
 	args := os.Args
 	if len(args) == 1 {
 		// default port
-		port = ":2525"
+		port = ":8989"
 	} else if len(args) == 2 && Check(args[1]) {
 		port = ":" + args[1]
 	} else {
