@@ -319,7 +319,6 @@ func (s *Server) leaveRoom(conn net.Conn) {
 	}
 }
 
-
 func (s *Server) broadcastToRoom(sender net.Conn, msg []byte) {
 	currentRoom := s.clientRooms[sender]
 	timestamp := TimeFormat()
@@ -336,7 +335,7 @@ func (s *Server) broadcastToRoom(sender net.Conn, msg []byte) {
 		if err != nil {
 			fmt.Println("Error writing to connection:", err)
 		}
-  }
+	}
 }
 
 func (s *Server) joinRoom(client Client, roomName string) {
@@ -468,7 +467,7 @@ func main() {
 	args := os.Args
 	if len(args) == 1 {
 		// default port
-		port = ":8989"
+		port = ":2525"
 	} else if len(args) == 2 && Check(args[1]) {
 		port = ":" + args[1]
 	} else {
