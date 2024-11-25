@@ -163,7 +163,7 @@ func TestServer_handleUserInput(t *testing.T) {
 				shutdown:   make(chan struct{}),
 			},
 			args: args{
-				conn: &net.IPConn{},
+				conn: &net.IConn{},
 				msg:  "Hello, World!",
 			},
 			want: []byte("Hello, World!\n"),
