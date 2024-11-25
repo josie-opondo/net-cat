@@ -186,11 +186,7 @@ func (s *Server) handleClient(conn net.Conn) {
 func (s *Server) readConn(client Client) {
 	reader := bufio.NewReader(client.conn)
 	for {
-		msg, err := reader.ReadString('\n')
-		if err != nil {
-			s.clientInfomer(client.conn, []byte(fmt.Sprintf("\n%s has left the chat\n", client.userName)), true)
-			break
-		}
+		msg, _ := reader.ReadString('\n')
 
 		formatMsg := s.handleUserInput(client, msg)
 		if formatMsg == nil {
