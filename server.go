@@ -361,22 +361,6 @@ func (s *Server) addClient(conn net.Conn, client Client) {
 	s.clients[conn] = client.userName
 }
 
-// func (s *Server) broadcastMsg(conn net.Conn, msg []byte) {
-// 	for client := range s.clients {
-// 		timestamp := time.Now().Format("2006-01-02 15:04:05")
-// 		clearscreen := "\033[F\033[K"
-// 		message := fmt.Sprintf("[%v][%s]:%s", timestamp, s.clients[conn], msg)
-// 		s.Logs(message)
-// 		if client == conn {
-// 			message = fmt.Sprintf("%v[%v][%s]:%s", clearscreen, timestamp, s.clients[conn], msg)
-// 		}
-// 		_, err := client.Write([]byte(message))
-// 		if err != nil {
-// 			fmt.Println("Error writing to connection:", err)
-// 		}
-// 	}
-// }
-
 func (s *Server) clientInfomer(conn net.Conn, msg []byte, broadcast bool) {
 	if broadcast {
 		for client := range s.clients {
