@@ -17,6 +17,7 @@ type Client struct {
 	input    chan string
 }
 
+// NewClient creates a new client instance and connects it to the server
 func NewClient(serverAdr string) (*Client, error) {
 	conn, err := connectToServer(serverAdr)
 	if err != nil {
@@ -31,6 +32,7 @@ func NewClient(serverAdr string) (*Client, error) {
 	return client, nil
 }
 
+// connectToServer tries to establish a connection to the server with retry logic
 func connectToServer(serverAdr string) (net.Conn, error) {
 	var conn net.Conn
 	var err error
@@ -46,6 +48,7 @@ func connectToServer(serverAdr string) (net.Conn, error) {
 	return nil, err
 }
 
+// Start manages the main client logic and handles communication
 func (c *Client) Start() {
 	defer c.conn.Close()
 
@@ -60,6 +63,7 @@ func (c *Client) Start() {
 	c.mainLoop()
 }
 
+// readServerPrompt reads the initial server prompt (e.g., username prompt) and sends the username
 func (c *Client) readServerPrompt(reader *bufio.Reader) error {
 	prompt, err := reader.ReadString(':')
 	if err != nil {
@@ -81,13 +85,12 @@ func (c *Client) readServerPrompt(reader *bufio.Reader) error {
 	return nil
 }
 
+// handleUserInput captures user input from the console and sends it to the input channel
 func (c *Client) handleUserInput() {
 	scanner := bufio.NewScanner(os.Stdin)
 
 	for scanner.Scan() {
 		input := scanner.Text()
-		// c.resetCursor()
-		// Send the input to the input channel
 		if input != strings.Trim("\n", " ") {
 			c.input <- input
 		}
@@ -99,11 +102,7 @@ func (c *Client) handleUserInput() {
 	}
 }
 
-// func (c *Client) resetCursor() {
-// 	// Move cursor up one line and clear the line
-// 	fmt.Print("\033[F\033[K")
-// }
-
+// listenForServerMessages continuously listens for and prints messages from the server
 func (c *Client) listenForServerMessages(reader *bufio.Reader) {
 	for {
 		msg, err := reader.ReadString('\n')
@@ -116,6 +115,7 @@ func (c *Client) listenForServerMessages(reader *bufio.Reader) {
 	}
 }
 
+// sendMessage sends a user message to the server
 func (c *Client) sendMessage(msg string) {
 	writer := bufio.NewWriter(c.conn)
 
@@ -135,6 +135,7 @@ func (c *Client) sendMessage(msg string) {
 	}
 }
 
+// mainLoop continuously processes user input and sends messages to the server
 func (c *Client) mainLoop() {
 	for input := range c.input {
 		c.sendMessage(input)

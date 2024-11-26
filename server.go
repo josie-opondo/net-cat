@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// Server struct defines the core attributes of the TCP chat server.
 type Server struct {
 	listenAddr  string
 	ln          net.Listener
@@ -25,12 +26,14 @@ type Server struct {
 	tempMsg     string
 }
 
+// Client struct represents a user in the chat.
 type Client struct {
 	conn     net.Conn
 	userName string
 	room     string
 }
 
+// Message struct represents a message in the chat.
 type Message struct {
 	sender  string
 	content []byte
@@ -38,6 +41,7 @@ type Message struct {
 	msgDate time.Time
 }
 
+// NewServer initializes a new instance of the Server.
 func NewServer(port string) (*Server, error) {
 	return &Server{
 		listenAddr:  port,
@@ -52,6 +56,7 @@ func NewServer(port string) (*Server, error) {
 	}, nil
 }
 
+// Logo generates an ASCII art logo with color codes.
 func (s *Server) Logo() (string, error) {
 	logo := "\033[34m" + // Start blue background
 		"          _nnnn_\n" +
@@ -73,6 +78,7 @@ func (s *Server) Logo() (string, error) {
 	return logo, nil
 }
 
+// Start begins listening for incoming connections and processing messages.
 func (s *Server) Start(ctx context.Context) error {
 	ln, err := net.Listen("tcp", s.listenAddr)
 	if err != nil {
@@ -100,6 +106,7 @@ func (s *Server) Start(ctx context.Context) error {
 	return nil
 }
 
+// handleConnection accepts incoming client connections.
 func (s *Server) handleConnection() {
 	for {
 		conn, err := s.ln.Accept()
@@ -126,6 +133,7 @@ func (s *Server) handleConnection() {
 
 var UserNames = make(map[string]bool)
 
+// handleClient manages communication with a single client.
 func (s *Server) handleClient(conn net.Conn) {
 	defer func() {
 		s.removeClient(conn)
@@ -150,8 +158,6 @@ func (s *Server) handleClient(conn net.Conn) {
 	if !ok {
 		UserNames[userName] = true
 	} else {
-		// fmt.Println("username already exists try another name")
-		// msg := "%s already existed so you were assigned a new nickname [%s]"
 		randInt := rand.Intn(10)
 		userName = fmt.Sprintf("%s%d", userName, randInt)
 	}
@@ -164,14 +170,12 @@ func (s *Server) handleClient(conn net.Conn) {
 
 	s.addClient(conn, client)
 
-	// s.addClient(conn, userName)
 	// create a new room for the client
 	roomName := fmt.Sprintf("room1_%s", s.listenAddr)
 
 	s.joinRoom(client, roomName)
 
 	conn.Write([]byte(fmt.Sprintf("Welcome, %s!\nUse /help for more options.\n", userName)))
-	// s.clientInfomer(conn, []byte(fmt.Sprintf("%s has joined the chat!\n", userName)), true)
 
 	for _, msg := range s.msgStore {
 		timestamp := msg.msgDate.Format("2006-01-02 15:04:05")
@@ -185,6 +189,8 @@ func (s *Server) handleClient(conn net.Conn) {
 	s.readConn(client)
 }
 
+// readConn listens for incoming messages from a specific client.
+// It processes and handles messages, such as commands or chat messages, in real time.
 func (s *Server) readConn(client Client) {
 	reader := bufio.NewReader(client.conn)
 	for {
@@ -210,6 +216,8 @@ func (s *Server) readConn(client Client) {
 	}
 }
 
+// handleUserInput processes special commands sent by the client, such as changing names or joining rooms.
+// It returns the processed message or nil if the input is a command.
 func (s *Server) handleUserInput(client Client, msg string) []byte {
 	switch {
 	case strings.Contains(msg, "/name"):
@@ -282,6 +290,7 @@ func (s *Server) handleUserInput(client Client, msg string) []byte {
 	return nil
 }
 
+// leaveRoom removes a client from their current room, notifies other clients, and deletes empty rooms.
 func (s *Server) leaveRoom(conn net.Conn) {
 	currentRoom := s.clientRooms[conn]
 
@@ -317,6 +326,7 @@ func (s *Server) leaveRoom(conn net.Conn) {
 	}
 }
 
+// broadcastToRoom sends a message to all clients in a specific room except the sender.
 func (s *Server) broadcastToRoom(sender net.Conn, msg []byte) {
 	currentRoom := s.clientRooms[sender]
 	timestamp := TimeFormat()
@@ -328,7 +338,7 @@ func (s *Server) broadcastToRoom(sender net.Conn, msg []byte) {
 			clearscreen := "\033[F\033[K"
 			client.conn.Write([]byte(clearscreen))
 		}
-		// message := fmt.Sprintf("[%v][%s]:%s", timestamp, client.userName, msg)
+
 		_, err := client.conn.Write([]byte(message))
 		if err != nil {
 			fmt.Println("Error writing to connection:", err)
@@ -336,6 +346,7 @@ func (s *Server) broadcastToRoom(sender net.Conn, msg []byte) {
 	}
 }
 
+// joinRoom adds a client to a specific room and notifies other members.
 func (s *Server) joinRoom(client Client, roomName string) {
 	// leave the current room if the client is in one
 	s.leaveRoom(client.conn)
@@ -357,10 +368,13 @@ func Logger(functionName string, lineNumber int, data interface{}) {
 	fd.WriteString(fmt.Sprintf("function-> %v\nline Number %d\ndata %v\n", functionName, lineNumber, data))
 }
 
+// addClient adds a new client to the server's active clients map.
+// It maps the client's network connection to their username.
 func (s *Server) addClient(conn net.Conn, client Client) {
 	s.clients[conn] = client.userName
 }
 
+// clientInfomer sends a message to a specific client or broadcasts it to all clients.
 func (s *Server) clientInfomer(conn net.Conn, msg []byte, broadcast bool) {
 	if broadcast {
 		for client := range s.clients {
@@ -381,14 +395,19 @@ func (s *Server) clientInfomer(conn net.Conn, msg []byte, broadcast bool) {
 	}
 }
 
+// TimeFormat returns the current time formatted as "YYYY-MM-DD HH:MM:SS".
 func TimeFormat() string {
 	return time.Now().Format("2006-01-02 15:04:05")
 }
 
+// removeClient removes a client from the server's active clients map.
+// called when a client disconnects or leaves the chat.
 func (s *Server) removeClient(conn net.Conn) {
 	delete(s.clients, conn)
 }
 
+// closeAllConnections closes all active client connections.
+// This is used when the server is shutting down to release resources.
 func (s *Server) closeAllConnections() {
 	for conn := range s.clients {
 		conn.Close() // Close each active client connection
@@ -396,6 +415,7 @@ func (s *Server) closeAllConnections() {
 	fmt.Println("All connections closed.")
 }
 
+// listRooms sends a list of all available chat rooms to the specified client.
 func (s *Server) listRooms(conn net.Conn) {
 	var rooms []string
 	for room := range s.rooms {
@@ -404,6 +424,7 @@ func (s *Server) listRooms(conn net.Conn) {
 	conn.Write([]byte(fmt.Sprintf("available rooms: %s\n", strings.Join(rooms, ", "))))
 }
 
+// listRoomMembers sends a list of all members in the specified chat room to the client.
 func (s *Server) listRoomMembers(conn net.Conn, room string) {
 	clients, exists := s.rooms[room]
 
@@ -419,6 +440,7 @@ func (s *Server) listRoomMembers(conn net.Conn, room string) {
 	conn.Write([]byte(fmt.Sprintf("Members in %s: %s\n", room, strings.Join(members, ", "))))
 }
 
+// Check verifies whether the given string consists entirely of numeric characters.
 func Check(arg string) bool {
 	for _, char := range arg {
 		if char < '0' || char > '9' {
@@ -430,6 +452,7 @@ func Check(arg string) bool {
 
 var mu sync.Mutex
 
+// Logs appends a log message to a file named "history.log" for record-keeping.
 func (s *Server) Logs(msg string) {
 	if msg == s.tempMsg {
 		return
