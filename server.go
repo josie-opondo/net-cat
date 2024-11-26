@@ -22,6 +22,7 @@ type Server struct {
 	shutdown    chan struct{}       // Shutdown channel
 	rooms       map[string][]Client // Map to store clients in rooms
 	clientRooms map[net.Conn]string // track current room of each client
+	tempMsg     string
 }
 
 type Client struct {
@@ -47,6 +48,7 @@ func NewServer(port string) (*Server, error) {
 		shutdown:    make(chan struct{}),       // Initialize the shutdown channel
 		rooms:       make(map[string][]Client), // intialize the rooms map
 		clientRooms: make(map[net.Conn]string),
+		tempMsg: "",
 	}, nil
 }
 
@@ -445,17 +447,21 @@ func Check(arg string) bool {
 var mu sync.Mutex
 
 func (s *Server) Logs(msg string) {
+	if msg == s.tempMsg {
+		return
+	}
+
 	mu.Lock()
 	defer mu.Unlock()
 	filename := "history.log"
 	fileDescriptor, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0o644)
-
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	defer fileDescriptor.Close()
 	fileDescriptor.WriteString(msg)
+	s.tempMsg = msg
 }
 
 func main() {
