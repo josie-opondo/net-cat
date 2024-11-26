@@ -68,7 +68,7 @@ func (s *Server) Logo() (string, error) {
 		" \033[34m_)      \\.___.,|     .'\033[34m\n" +
 		" \033[34m\\____   )MMMMMP|   .'\033[34m\n" +
 		"      `-'       `--'\033[0m" // Reset colors
-	return string(logo), nil
+	return logo, nil
 }
 
 func (s *Server) Start(ctx context.Context) error {
